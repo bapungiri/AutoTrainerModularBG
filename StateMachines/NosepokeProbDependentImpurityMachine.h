@@ -96,15 +96,14 @@ void NosepokeProbDependentMachine(){
 						LickDI.clear();
 						int unsigned randomNumber = random(100);
 						if (port[0] == 1){
-						if (randomNumber<(unsigned)prob){
+						if (randomNumber<(unsigned)prob1){
 							GiveReward(1);
 							rewardFlag = true;
 							NosepokeProbDependentVar.rewardCounter++;
 						}
 					}
 						else if(port[1] == 1){
-						if ((signed)randomNumber<(100-prob)
-							){
+						if (randomNumber<(unsigned)prob2){
 							GiveReward(1);
 							rewardFlag = true;
 							NosepokeProbDependentVar.rewardCounter++;

@@ -96,8 +96,7 @@ void NosepokeProbIndependentMachine(){
 						}
 					}
 						else if(port[1] == 1){
-						if (randomNumber<(unsigned)prob2
-							){
+						if (randomNumber<(unsigned)prob2){
 							GiveReward(1);
 							rewardFlag = true;
 							NosepokeProbIndependentVar.rewardCounter++;
