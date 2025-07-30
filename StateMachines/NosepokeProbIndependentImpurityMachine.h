@@ -26,14 +26,23 @@ void NosepokeProbIndependentMachine(){
 	CamLeftDO.on();
 	CamRightDO.on();
 
-    int unstrprob = 16;
-    int strprob = 84;
-	
-	int prob1 = (int)(drawProb()*100); 
-	ReportData(83, 1, prob1);
-	int prob2 = (int)(drawProb()*100); 
-	ReportData(83, 2, prob2); 
-	
+    int unstrprob = 84;
+    int strprob = 16;
+	int unsigned randomEnvDraw = random(100);
+
+	if (randomEnvDraw < (unsigned)unstrprob){
+		int prob1 = (int)(drawProb()*100); 
+		ReportData(83, 1, prob1);
+		int prob2 = (int)(drawProb()*100); 
+		ReportData(83, 2, prob2); 
+	}
+	else{
+		int prob1 = (int)(drawProb()*100);
+		int prob2 = 100 - prob1;
+		ReportData(83, 1, prob1);
+		ReportData(83, 2, prob2); 
+	}
+		
 	int min_length = 100;
 	int switchProb = 2;
 	int trialCounter = 0;
