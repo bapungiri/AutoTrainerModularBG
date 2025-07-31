@@ -31,6 +31,30 @@ float GenerateProb(float mu, float xval){
   return prob;
 }
 
+float DrawAProb(){
+  float probArr[6] = {0.2, 0.3, 0.4, 0.6, 0.7, 0.8};
+  int n = random(6);
+  float prob = probArr[n];
+  return prob;
+}
+
+float DrawStrucPair(float prob1){
+  float prob2 = 1- prob1;
+  return prob2;
+}
+
+void DrawUnstrucPair(float prob1){
+	float probArr[6] = {0.2, 0.3, 0.4, 0.6, 0.7, 0.8}; 
+	
+	int idx;
+	do {
+		idx = random(6);
+	} while (probArr[idx] == (1.0 - prob1));
+
+  float prob2 = probArr[idx];
+	return prob2;
+}
+
 void permutePorts(float* ports, int sizer){
   for (int i = 0; i< sizer; ++i){
     int n = random(0, sizer);
