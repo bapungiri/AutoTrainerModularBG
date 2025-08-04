@@ -48,5 +48,7 @@ void loop() {
   */
 
   HouseKeeping();                           // Check alarms by using alarm delay
+
+  
   stateMachineFunc[currentStateMachine]();  // Run the current state machine
 }

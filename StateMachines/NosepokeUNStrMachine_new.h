@@ -171,6 +171,7 @@ void NosepokeUNStrMachine(){
 					ReportData(-52, 0, (millis()-stateMachineStartTime));									
 					continue;								
 				}
+
 			}
 
 			// Report no reward/ miss trials. 
