@@ -31,27 +31,30 @@ float GenerateProb(float mu, float xval){
   return prob;
 }
 
-float DrawAProb(){
-  float probArr[6] = {0.2, 0.3, 0.4, 0.6, 0.7, 0.8};
+int DrawAProb(){
+  //Draw a probability value from the set {20, 30, 40, 60, 70, 80}
+  int probArr[6] = {20, 30, 40, 60, 70, 80};
   int n = random(6);
-  float prob = probArr[n];
+  int prob = probArr[n];
   return prob;
 }
 
-float DrawStrucPair(float prob1){
-  float prob2 = 1- prob1;
+int DrawStrucPair(int prob1){
+  // Given prob1, draw a paired probability such that prob1 + prob2 = 100
+  int prob2 = 100 - prob1;
   return prob2;
 }
 
-void DrawUnstrucPair(float prob1){
-	float probArr[6] = {0.2, 0.3, 0.4, 0.6, 0.7, 0.8}; 
+int DrawUnstrucPair(int prob1){
+  // Given prob1, draw a paired probability such that prob1 + prob2 != 100
+	int probArr[6] = {20, 30, 40, 60, 70, 80}; 
 	
 	int idx;
 	do {
 		idx = random(6);
-	} while (probArr[idx] == (1.0 - prob1));
+	} while (probArr[idx] == (100 - prob1));
 
-  float prob2 = probArr[idx];
+  int prob2 = probArr[idx];
 	return prob2;
 }
 

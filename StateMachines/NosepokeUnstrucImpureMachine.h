@@ -1,14 +1,14 @@
-#ifndef _NosepokeUNStrMachine_h
-#define _NosepokeUNStrMachine_h
+#ifndef _NosepokeUnstrucImpureMachine_h
+#define _NosepokeUnstrucImpureMachine_h
 #include <stdio.h>
 
 // State machine variable
-struct NosepokeUNStrStruct{
+struct NosepokeUnstrucImpureStruct{
 	int rewardCounter; // Number of rewards in this sm
-	float probArray[2]; // reward probability array
+	int probArray[2]; // reward probability array
 	int sessionNum; // which session number is this 
 	int trialCounter; // which trial are you on?
-} NosepokeUNStrVar = {0, {0}, 1};
+} NosepokeUnstrucImpureVar = {0, {0}, 1};
 
 void updateRewProb(){
 	float ports[] = {1.0, 2.0};
@@ -21,8 +21,8 @@ void updateRewProb(){
 
 	int unsigned randomEnvDraw = random(100);
 
-	float prob1 = DrawAProb(); 
-	float prob2;
+	int prob1 = DrawAProb(); 
+	int prob2;
 
 	if (randomEnvDraw < (unsigned)unstrprob){
 		prob2 = DrawUnstrucPair(prob1); 
@@ -32,23 +32,23 @@ void updateRewProb(){
 		prob2 = DrawStrucPair(prob1); 
 	}
 
-    NosepokeUNStrVar.probArray[0] = prob1;
-	NosepokeUNStrVar.probArray[1] = prob2;
+    NosepokeUnstrucImpureVar.probArray[0] = prob1;
+	NosepokeUnstrucImpureVar.probArray[1] = prob2;
 }
 
 void reportProb(){
 	float ports[] = {1.0, 2.0};
 	for (int i =0; i<2; ++i){
-		ReportData(83, (int)ports[i], (int)(NosepokeUNStrVar.probArray[i]*100));
+		ReportData(83, (int)ports[i], NosepokeUnstrucImpureVar.probArray[i]);
 	}
 }
 
 int checkSMStateStop(){
 	if (stateStop){
 		// End SM
-		ReportData(111, NosepokeUNStrVar.trialCounter, (millis()-stateMachineStartTime));
-		ReportData(121, NosepokeUNStrVar.sessionNum, (millis()-stateMachineStartTime));
-		ReportData(63, NosepokeUNStrVar.rewardCounter, (millis()-stateMachineStartTime));
+		ReportData(111, NosepokeUnstrucImpureVar.trialCounter, (millis()-stateMachineStartTime));
+		ReportData(121, NosepokeUnstrucImpureVar.sessionNum, (millis()-stateMachineStartTime));
+		ReportData(63, NosepokeUnstrucImpureVar.rewardCounter, (millis()-stateMachineStartTime));
 		EndCurrentStateMachine();
 		RunStartANDEndStateMachine(&endStateMachine);
 		EndCurrentTrainingProtocol();
@@ -66,12 +66,12 @@ int changeBlock(){
 	int unsigned randomDraw = random(100);
 
 	// if performed more than trial limit
-	if (NosepokeUNStrVar.trialCounter >= min_length){
+	if (NosepokeUnstrucImpureVar.trialCounter >= min_length){
 
 		// check if random draw is less than p(switch)
 		if (randomDraw < (unsigned) switchProb){
-			ReportData(111, NosepokeUNStrVar.trialCounter, (millis()-stateMachineStartTime));
-			ReportData(121, NosepokeUNStrVar.sessionNum, (millis()-stateMachineStartTime));
+			ReportData(111, NosepokeUnstrucImpureVar.trialCounter, (millis()-stateMachineStartTime));
+			ReportData(121, NosepokeUnstrucImpureVar.sessionNum, (millis()-stateMachineStartTime));
 			return 1;
 		}
 
@@ -86,7 +86,7 @@ int changeBlock(){
 	}
 }
 
-void NosepokeUNStrMachine(){
+void NosepokeUnstrucImpureMachine(){
 	
 	RunStartANDEndStateMachine(&startStateMachine); // Start Training protocol
 
@@ -94,20 +94,19 @@ void NosepokeUNStrMachine(){
 	InitializeStateMachine(); 		
 
 	// Increase session counter
-	NosepokeUNStrVar.sessionNum++;				
+	NosepokeUnstrucImpureVar.sessionNum++;				
 
 	// Initialize timers/delays
 	int delayStart = 0;
 
 	// Initialize counter
-	NosepokeUNStrVar.rewardCounter = 0;
+	NosepokeUnstrucImpureVar.rewardCounter = 0;
 
 	// Set probabilities for this block/session
 	updateRewProb();
 	reportProb();
 	int n=0;
-	float rewardProb;
-	int unsigned rewardPercent;
+	int rewardPercent;
 
 	// Initialize variables
 	bool restartBlock = false;
@@ -136,8 +135,7 @@ void NosepokeUNStrMachine(){
 			whenNosepoke = 0;
 
 			// assign reward probability
-			rewardProb = NosepokeUNStrVar.probArray[n-1];
-			rewardPercent = (int unsigned)(rewardProb*100);
+			rewardPercent = NosepokeUnstrucImpureVar.probArray[n-1];
 			ReportData(88, rewardPercent,(millis() - stateMachineStartTime));
 
 			// if licked, give reward acc to reward prob
@@ -149,42 +147,43 @@ void NosepokeUNStrMachine(){
 			SpeakerPwdAO.off(0);
 
 			// 5 sec timer for lick detection
-			delayStart = millis();							
+			delayStart = millis();
+			bool lickDetected = false;
 			while ((millis()-delayStart)<=5000){
 
 				// If lick detected,
-				if (LickDI.isOn()){							
+				if (LickDI.isOn()){
+					lickDetected = true;
 					LickDI.clear();
 
 					// Increase trial counter,
-					NosepokeUNStrVar.trialCounter++;
+					NosepokeUnstrucImpureVar.trialCounter++;
 					int unsigned randomNumber = random(100);
 
 					// chance that Lick is rewarded and cycle continues
 					if (randomNumber < rewardPercent){
 
 						// give reward and report R trial
-						GiveReward(1);							
+						GiveReward(1);
 						rewardFlag = true;
 
 						// Increase reward counter
-						NosepokeUNStrVar.rewardCounter++;
+						NosepokeUnstrucImpureVar.rewardCounter++;
 					}
 					else{
 
-						// Report NR trial
+						// Report Unrewarded trial
 						ReportData(-51, 0, (millis()-stateMachineStartTime));
 					}
 					// break out of 5s while loop.
 					break;
 				}
-				// No lick detected,
-				else{
+			}
 
-					// no reward obtained (trial missed).
-					ReportData(-52, 0, (millis()-stateMachineStartTime));									
-					continue;								
-				}
+			// After the loop, check if a lick ever happened
+			if (lickDetected == false){
+				// This is a true "missed trial" because the 5s ended with no lick.
+				ReportData(-52, 0, (millis()-stateMachineStartTime));
 			}
 
 			// Report no reward/ miss trials. 
@@ -203,7 +202,7 @@ void NosepokeUNStrMachine(){
 
 	if (restartBlock == true){ // restart the session.
 		restartBlock = false;
-		NosepokeUNStrMachine();
+		NosepokeUnstrucImpureMachine();
 	}
 }	
 

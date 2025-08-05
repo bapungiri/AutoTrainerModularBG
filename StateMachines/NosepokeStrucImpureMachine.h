@@ -1,11 +1,11 @@
-#ifndef _NosepokeUNStrMachine_h
-#define _NosepokeUNStrMachine_h
+#ifndef _NosepokeStrucImpureMachine_h
+#define _NosepokeStrucImpureMachine_h
 #include <stdio.h>
 
 // State machine variable
 struct NosepokeStrucImpureStruct{
 	int rewardCounter; // Number of rewards in this sm
-	float probArray[2]; // reward probability array
+	int probArray[2]; // reward probability array
 	int sessionNum; // which session number is this 
 	int trialCounter; // which trial are you on?
 } NosepokeStrucImpureVar = {0, {0}, 1};
@@ -21,8 +21,8 @@ void updateRewProb(){
 
 	int unsigned randomEnvDraw = random(100);
 
-	float prob1 = DrawAProb(); 
-	float prob2;
+	int prob1 = DrawAProb(); 
+	int prob2;
 
 	if (randomEnvDraw < (unsigned)unstrprob){
 		prob2 = DrawUnstrucPair(prob1); 
@@ -39,7 +39,7 @@ void updateRewProb(){
 void reportProb(){
 	float ports[] = {1.0, 2.0};
 	for (int i =0; i<2; ++i){
-		ReportData(83, (int)ports[i], (int)(NosepokeStrucImpureVar.probArray[i]*100));
+		ReportData(83, (int)ports[i], NosepokeStrucImpureVar.probArray[i]);
 	}
 }
 
@@ -86,7 +86,7 @@ int changeBlock(){
 	}
 }
 
-void NosepokeUNStrMachine(){
+void NosepokeStrucImpureMachine(){
 	
 	RunStartANDEndStateMachine(&startStateMachine); // Start Training protocol
 
@@ -106,8 +106,7 @@ void NosepokeUNStrMachine(){
 	updateRewProb();
 	reportProb();
 	int n=0;
-	float rewardProb;
-	int unsigned rewardPercent;
+	int rewardPercent;
 
 	// Initialize variables
 	bool restartBlock = false;
@@ -136,8 +135,7 @@ void NosepokeUNStrMachine(){
 			whenNosepoke = 0;
 
 			// assign reward probability
-			rewardProb = NosepokeStrucImpureVar.probArray[n-1];
-			rewardPercent = (int unsigned)(rewardProb*100);
+			rewardPercent = NosepokeStrucImpureVar.probArray[n-1];
 			ReportData(88, rewardPercent,(millis() - stateMachineStartTime));
 
 			// if licked, give reward acc to reward prob
