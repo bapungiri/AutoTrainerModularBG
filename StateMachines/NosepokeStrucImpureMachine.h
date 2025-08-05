@@ -8,7 +8,7 @@ struct NosepokeStrucImpureStruct{
 	int probArray[2]; // reward probability array
 	int sessionNum; // which session number is this 
 	int trialCounter; // which trial are you on?
-} NosepokeStrucImpureVar = {0, {0}, 1};
+} NosepokeStrucImpureVar = {0, {0,0}, 1, 0};
 
 void updateRewProb(){
 	float ports[] = {1.0, 2.0};
