@@ -19,15 +19,15 @@
         SM(HouseLightsOnToneWater)           \
         SM(BlinkLightsToneWater)             \
         SM(NosepokeNonSession)               \
-        SM(LickTest)				         \
+        SM(LickTest)				                 \
         SM(LickTrain)                        \
         SM(NosepokeRewardNonSession)         \
         SM(Nosepoke1sound)                   \
         SM(NosepokeProb70)                   \ 
-        SM(NosepokeProbDependent)            \
-        SM(NosepokeProbIndependent)          \
-	    SM(NosepokeProb40)                   \
-        SM(ReadSessionParams)  			     \                  
+        SM(NosepokeProb40)                   \
+        SM(NosepokeUnstrucImpure)            \
+        SM(NosepokeStrucImpure)              \
+        SM(ReadSessionParams)  			         \                  
         SM(DoNothing)                        \
 
 // Define enum list of state machines (integer value = 0,1,2,...,numStates-1)
@@ -75,7 +75,7 @@ stateMachine trainingProtocol [numTrainingProtocol][maxNumStage][3] =  {
 {Nosepoke1sound,         DoNothing},
 {NosepokeProb70,         DoNothing},
 {NosepokeProb40,	       DoNothing},
-{NosepokeProbIndependent,  DoNothing}
+{NosepokeUnstrucImpure,  DoNothing}
 }
 };
 #endif
