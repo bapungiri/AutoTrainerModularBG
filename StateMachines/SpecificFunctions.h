@@ -52,7 +52,7 @@ int DrawUnstrucPair(int prob1){
 	int idx;
 	do {
 		idx = random(6);
-	} while (probArr[idx] == (100 - prob1));
+  } while (probArr[idx] == (100 - prob1) || probArr[idx] == prob1);
 
   int prob2 = probArr[idx];
 	return prob2;
