@@ -16,8 +16,8 @@ void updateRewProb(){
 
 	permutePorts(ports, sizer);
 
-    int unstrprob = 16; // probability to pick unstructured pair
-    int strprob = 84; // probability to pick structured pair
+    int unstrprob = 20; // probability to pick unstructured pair
+    int strprob = 80; // probability to pick structured pair
 
 	int unsigned randomEnvDraw = random(100);
 
@@ -25,11 +25,11 @@ void updateRewProb(){
 	int prob2;
 
 	if (randomEnvDraw < (unsigned)unstrprob){
-		prob2 = DrawUnstrucPair(prob1); 
+		prob2 = DrawDependentPair(prob1); 
 
 	}
 	else{
-		prob2 = DrawStrucPair(prob1); 
+		prob2 = DrawIndependentPair(prob1); 
 	}
 
     NosepokeStrucImpureVar.probArray[0] = prob1;
@@ -122,7 +122,7 @@ void NosepokeStrucImpureMachine(){
 		// UNStructured Reward Probablities SM
 		// detect which nosepoke triggered
 		int unsigned whenNosepoke;
-		if (Nosepoke1DI.isOn() || Nosepoke2DI.isOn())){
+		if (Nosepoke1DI.isOn() || Nosepoke2DI.isOn()){
 			whenNosepoke = (millis() - stateMachineStartTime);
 			uint8_t recordNosepoke[2] = {Nosepoke1DI.diRead(), Nosepoke2DI.diRead()};
 				int whichnosepoke[2] = {1,2};

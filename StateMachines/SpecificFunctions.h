@@ -39,13 +39,13 @@ int DrawAProb(){
   return prob;
 }
 
-int DrawStrucPair(int prob1){
+int DrawDependentPair(int prob1){
   // Given prob1, draw a paired probability such that prob1 + prob2 = 100
   int prob2 = 100 - prob1;
   return prob2;
 }
 
-int DrawUnstrucPair(int prob1){
+int DrawIndependentPair(int prob1){
   // Given prob1, draw a paired probability such that prob1 + prob2 != 100
 	int probArr[6] = {20, 30, 40, 60, 70, 80}; 
 	
