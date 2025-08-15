@@ -24,12 +24,16 @@ void updateRewProb(){
 	int prob1 = DrawAProb(); 
 	int prob2;
 
+	// NOTE: "Unstructured" block means the two port probabilities are sampled independently
+	// (subject only to the constraint prob2 != prob1 and prob1+prob2 != 100 inside DrawIndependentPair).
+	// "Structured" block means the second port is the complement (prob2 = 100 - prob1).
+	// This mapping (unstructured -> DrawIndependentPair, structured -> DrawDependentPair)
+	// is intentional; do not invert unless experimental design changes.
 	if (randomEnvDraw < (unsigned)unstrprob){
-		prob2 = DrawDependentPair(prob1); 
-
+		prob2 = DrawIndependentPair(prob1); 
 	}
 	else{
-		prob2 = DrawIndependentPair(prob1); 
+		prob2 = DrawDependentPair(prob1); 
 	}
 
     NosepokeStrucImpureVar.probArray[0] = prob1;
