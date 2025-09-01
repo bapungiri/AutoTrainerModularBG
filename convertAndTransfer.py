@@ -14,7 +14,7 @@ def getUserConfig(fileName, splitterChar):
         for eachLine in configFile:
             eachLine = eachLine.split("#")[0].strip()
 
-            if '=' in eachLine:
+            if "=" in eachLine:
                 (settingName, settingValue) = eachLine.split(splitterChar)
                 settingName = settingName.strip()
                 settingValue = settingValue.strip()
@@ -42,7 +42,6 @@ def mountFs(ip, fsDest, mountTo, creds, exitOnFail, remount):
 
         return False
 
-
     def unmount(path):
         cmd = "sudo umount %s" % path
 
@@ -53,7 +52,6 @@ def mountFs(ip, fsDest, mountTo, creds, exitOnFail, remount):
         except Exception as e:
             logPrint("mountFs: unmount: failed to unmount:\n%s" % cmd)
 
-
     if isMountPoint(mountTo):
         logPrint("mountFs: NAS already mounted")
 
@@ -63,8 +61,12 @@ def mountFs(ip, fsDest, mountTo, creds, exitOnFail, remount):
 
         return
 
-    cmd = "sudo mount -t cifs //%s/%s %s -o credentials=%s" %\
-           (ip, fsDest, mountTo, creds)
+    cmd = "sudo mount -t cifs //%s/%s %s -o credentials=%s" % (
+        ip,
+        fsDest,
+        mountTo,
+        creds,
+    )
 
     subprocess.run(cmd, shell=True)
     files = os.listdir(mountTo)
@@ -91,14 +93,15 @@ def findAllFiles(exts, paths):
         for root, dirs, files in os.walk(path):
             for file in files:
                 isExt = any([file.endswith(ext) for ext in exts])
-                isDirIgnore = any([dirname.startswith("_") for dirname in root.split("/")])
+                isDirIgnore = any(
+                    [dirname.startswith("_") for dirname in root.split("/")]
+                )
                 isFileIgnore = file.startswith("_")
 
                 if isExt and not isDirIgnore and not isFileIgnore:
                     foundFiles.append(os.path.join(root, file))
 
         return foundFiles
-
 
     allFiles = []
 
@@ -114,7 +117,16 @@ def findLatest(files, exts):
     logPrint("findLatest: finding latest files")
 
     try:
-        latest = {ext: sorted([file if os.path.splitext(file)[1][1:] == ext else None for file in files], key=lambda x: os.path.getmtime(x) if x else -1)[-1] for ext in exts}
+        latest = {
+            ext: sorted(
+                [
+                    file if os.path.splitext(file)[1][1:] == ext else None
+                    for file in files
+                ],
+                key=lambda x: os.path.getmtime(x) if x else -1,
+            )[-1]
+            for ext in exts
+        }
         logPrint("findLatest: found latest files:\n%s" % latest)
 
     except Exception as e:
@@ -133,7 +145,9 @@ def convertVideo(file, fps, keepSource=False):
 
     try:
         logPrint("convertVideo: converting:\n%s" % cmd)
-        subProc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        subProc = subprocess.Popen(
+            cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
         subOut, subErr = subProc.communicate()
         subOut = subOut.decode("utf-8").lower()
         subErr = subErr.decode("utf-8").lower()
@@ -142,13 +156,21 @@ def convertVideo(file, fps, keepSource=False):
             print("asdf")
             raise Exception("ffmpeg failed with return code %d" % subProc.returncode)
 
-        if "exception" in subOut or "exception" in subErr or "unexpected" in subOut or "unexpected" in subErr:
+        if (
+            "exception" in subOut
+            or "exception" in subErr
+            or "unexpected" in subOut
+            or "unexpected" in subErr
+        ):
             raise Exception("rror detected in FFmpeg output")
 
         return newFile
 
     except Exception as e:
-        logPrint("convertVideo: FAILED to convert:\n%s\n%s\n%s\n%s" % (cmd, e, subOut, subErr))
+        logPrint(
+            "convertVideo: FAILED to convert:\n%s\n%s\n%s\n%s"
+            % (cmd, e, subOut, subErr)
+        )
         raise Exception("failed to convert video")
 
 
@@ -215,13 +237,19 @@ def specificTransfer(files, dest, latest, fps=None, skipLatest=False):
             ext = "mp4"
 
         if ext == "events" or ext == "frames" or ext == "mp4":
-            extDest = os.path.join(dest, "Video", os.path.basename(os.path.dirname(file))) + "/"
+            extDest = (
+                os.path.join(dest, "Video", os.path.basename(os.path.dirname(file)))
+                + "/"
+            )
 
             if not os.path.exists(extDest):
                 os.makedirs(extDest)
 
         else:
-            extDest = os.path.join(dest, "Data", os.path.basename(os.path.dirname(file))) + "/"
+            extDest = (
+                os.path.join(dest, "Data", os.path.basename(os.path.dirname(file)))
+                + "/"
+            )
 
             if not os.path.exists(extDest):
                 os.makedirs(extDest)
@@ -302,8 +330,15 @@ def main():
     camInfo = getUserConfig("camInfoM.in", "=")
 
     # initialise log file
-    dateTime = (str(datetime.datetime.now().date()) + "_" + str(datetime.datetime.now().time())[:-7]).replace(":", "-")
-    logging.basicConfig(filename="%s.log" % os.path.join(userInfo["Logs_Dir"], dateTime), format="%(asctime)s > %(message)s\n")
+    dateTime = (
+        str(datetime.datetime.now().date())
+        + "_"
+        + str(datetime.datetime.now().time())[:-7]
+    ).replace(":", "-")
+    logging.basicConfig(
+        filename="%s.log" % os.path.join(userInfo["Logs_Dir"], dateTime),
+        format="%(asctime)s > %(message)s\n",
+    )
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
     logPrint("main: START @ %s" % time.ctime())
@@ -319,12 +354,14 @@ def main():
 
     remountNas = userInfo["Remount"].lower() == "true"
 
-    mountFs(ip=userInfo["Nas_Ip"],
-            fsDest=userInfo["Destination_In_Fs"],
-            mountTo=mountpoint,
-            creds=userInfo["Nas_Creds"],
-            exitOnFail=False,
-            remount=remountNas)
+    mountFs(
+        ip=userInfo["Nas_Ip"],
+        fsDest=userInfo["Destination_In_Fs"],
+        mountTo=mountpoint,
+        creds=userInfo["Nas_Creds"],
+        exitOnFail=False,
+        remount=remountNas,
+    )
 
     allFiles = findAllFiles(exts, lookInPaths)
 
@@ -338,10 +375,14 @@ def main():
 
     if not specificDests:
         dailyDir = makeDirs(exts, mountpoint, specificDests)
-        transferred = transfer(allFiles, dailyDir, latest, camInfo["Camera_FPS"], skipLatest)
+        transferred = transfer(
+            allFiles, dailyDir, latest, camInfo["Camera_FPS"], skipLatest
+        )
     else:
         dest = mountpoint
-        transferred = specificTransfer(allFiles, dest, latest, camInfo["Camera_FPS"], skipLatest)
+        transferred = specificTransfer(
+            allFiles, dest, latest, camInfo["Camera_FPS"], skipLatest
+        )
 
     time.sleep(10)
     verify(transferred)

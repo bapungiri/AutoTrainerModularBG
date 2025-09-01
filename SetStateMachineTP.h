@@ -27,7 +27,7 @@
         SM(NosepokeProb40)                   \
         SM(NosepokeUnstrucImpure)            \
         SM(NosepokeStrucImpure)              \
-        SM(ReadSessionParams)  			         \                  
+        SM(ReadSessionParams)                \
         SM(DoNothing)                        \
 
 // Define enum list of state machines (integer value = 0,1,2,...,numStates-1)
@@ -75,7 +75,7 @@ stateMachine trainingProtocol [numTrainingProtocol][maxNumStage][3] =  {
 {Nosepoke1sound,         DoNothing},
 {NosepokeProb70,         DoNothing},
 {NosepokeProb40,	       DoNothing},
-{NosepokeUnstrucImpure,  DoNothing}
+{NosepokeStrucImpure,  DoNothing}
 }
 };
 #endif
