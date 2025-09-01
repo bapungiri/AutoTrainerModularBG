@@ -156,6 +156,11 @@ void InitializeStateMachine();
 // Function to report data to the Teensy 3.6 serial terminal
 void ReportData(int,int,int);
 
+// Function to report a full trial summary on one CSV line:
+// eventCode, port1Prob, port2Prob, rewarded(1/0), trialId, sessionId, blockId,
+// trialStartEpoch, trialEndEpoch
+void ReportTrialSummary(int, int, int, int, int, int, unsigned long, unsigned long);
+
 // Function called at every state and substate machine loop to check for alarms to allow for termination
 void HouseKeeping(unsigned long);
 

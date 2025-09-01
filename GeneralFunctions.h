@@ -406,6 +406,35 @@ void ReportData(int type, int value, int sessionTime) {
   reportQueue.enqueue(ReportStr);
 }
 
+// -----------------------------------------   ReportTrialSummary
+// Writes a compact single CSV line capturing an entire trial.
+// Fields:
+// 0:eventCode,1:port1Prob,2:port2Prob,3:rewarded(1/0),4:trialId,5:blockId,6:trialStartEpoch,7:trialEndEpoch
+// This bypasses the queued ReportData system to avoid splitting across multiple lines.
+// Use a distinct eventCode (e.g., 200) to distinguish from regular ReportData lines.
+void ReportTrialSummary(int eventCode,
+                        int port1Prob,
+                        int port2Prob,
+                        int rewarded,
+                        int trialId,
+                        int blockId,
+                        unsigned long sessionStartTime,
+                        unsigned long blockStartTime,
+                        unsigned long trialStartTime,
+                        unsigned long trialEndTime){
+  Serial.print(eventCode); Serial.print(',');
+  Serial.print(port1Prob); Serial.print(',');
+  Serial.print(port2Prob); Serial.print(',');
+  Serial.print(rewarded); Serial.print(',');
+  Serial.print(trialId); Serial.print(',');
+  Serial.print(blockId); Serial.print(',');
+  Serial.print(sessionStartTime); Serial.print(',');
+  Serial.print(blockStartTime); Serial.print(',');
+  Serial.print(trialStartTime); Serial.print(',');
+  Serial.print(trialEndTime); Serial.println();
+  serialEvent();
+}
+
 // -----------------------------------------   GiveReward ## Pass pin class to make it more modular
 void GiveReward(int numPulses){
   ReportData(51, numPulses, (millis()-stateMachineStartTime));
@@ -654,4 +683,19 @@ void writeGlobalParameters(){
     serialEvent();
 }
 
+// Returns Unix epoch in milliseconds (64‑bit)
+uint64_t epochMillis() {
+  static time_t lastSec = 0;
+  static unsigned long secBaseMillis = 0;
+  time_t s = now();
+  // When the second value changes, capture the millis() at that boundary
+  if (s != lastSec) {
+    lastSec = s;
+    secBaseMillis = millis();
+  }
+  // millisSinceSec: how many ms since the captured second boundary
+  unsigned long msSinceSec = millis() - secBaseMillis; // handles rollover via unsigned arithmetic
+  if (msSinceSec > 999) msSinceSec = 999; // clamp (in case of slight scheduling lag)
+  return (uint64_t)s * 1000ULL + (uint64_t)msSinceSec;
+}
 #endif

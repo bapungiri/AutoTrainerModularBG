@@ -14,7 +14,7 @@ void updateRewProb(){
 	float ports[] = {1.0, 2.0};
 	int sizer = 2;
 
-	permutePorts(ports, sizer);
+	//permutePorts(ports, sizer);
 
     int unstrprob = 80; // probability to pick unstructured pair
     int strprob = 20; // probability to pick structured pair
