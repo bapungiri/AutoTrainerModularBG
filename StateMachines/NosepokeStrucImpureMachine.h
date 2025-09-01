@@ -6,15 +6,15 @@
 struct NosepokeStrucImpureStruct{
 	int rewardCounter; // Number of rewards in this sm
 	int probArray[2]; // reward probability array
-	int sessionNum; // which session number is this 
+	int blockNum;   // which block number (can track within or across sessions)
 	int trialCounter; // which trial are you on?
-} NosepokeStrucImpureVar = {0, {0,0}, 0, 0}; // sessionNum starts at 0 so first increment = session 1
+} NosepokeStrucImpureVar = {0, {0,0}, 0, 0}; // blockNum starts at 0 so first increment = 1
 
 void updateRewProb(){
 	float ports[] = {1.0, 2.0};
 	int sizer = 2;
 
-	permutePorts(ports, sizer);
+	//permutePorts(ports, sizer);
 
     int unstrprob = 20; // probability to pick unstructured pair
     int strprob = 80; // probability to pick structured pair
@@ -51,7 +51,7 @@ int checkSMStateStop(){
 	if (stateStop){
 		// End SM
 		ReportData(111, NosepokeStrucImpureVar.trialCounter, (millis()-stateMachineStartTime));
-		ReportData(121, NosepokeStrucImpureVar.sessionNum, (millis()-stateMachineStartTime));
+		ReportData(121, NosepokeStrucImpureVar.blockNum, (millis()-stateMachineStartTime));
 		ReportData(63, NosepokeStrucImpureVar.rewardCounter, (millis()-stateMachineStartTime));
 		EndCurrentStateMachine();
 		RunStartANDEndStateMachine(&endStateMachine);
@@ -75,7 +75,7 @@ int changeBlock(){
 		// check if random draw is less than p(switch)
 		if (randomDraw < (unsigned) switchProb){
 			ReportData(111, NosepokeStrucImpureVar.trialCounter, (millis()-stateMachineStartTime));
-			ReportData(121, NosepokeStrucImpureVar.sessionNum, (millis()-stateMachineStartTime));
+			ReportData(121, NosepokeStrucImpureVar.blockNum, (millis()-stateMachineStartTime));
 			return 1;
 		}
 
@@ -89,6 +89,7 @@ int changeBlock(){
 		return 0;
 	}
 }
+uint64_t sessionStartTime = epochMillis();
 
 void NosepokeStrucImpureMachine(){
 	
@@ -96,9 +97,10 @@ void NosepokeStrucImpureMachine(){
 
 	// Initialize SM
 	InitializeStateMachine(); 		
+	uint64_t blockStartTime = epochMillis();
 
-	// Increase session counter
-	NosepokeStrucImpureVar.sessionNum++;				
+	NosepokeStrucImpureVar.blockNum++;
+	NosepokeStrucImpureVar.trialCounter = 0;
 
 	// Initialize timers/delays
 	int delayStart = 0;
@@ -127,7 +129,12 @@ void NosepokeStrucImpureMachine(){
 		// detect which nosepoke triggered
 		int unsigned whenNosepoke;
 		if (Nosepoke1DI.isOn() || Nosepoke2DI.isOn()){
+			// Capture trial start epoch (absolute) when nosepoke detected
+			unsigned long trialStartEpoch = now();
+			uint64_t trialStartTime = epochMillis();
+			
 			whenNosepoke = (millis() - stateMachineStartTime);
+			
 			uint8_t recordNosepoke[2] = {Nosepoke1DI.diRead(), Nosepoke2DI.diRead()};
 				int whichnosepoke[2] = {1,2};
 				for (int i = 0; i<=1; ++i){
@@ -159,7 +166,6 @@ void NosepokeStrucImpureMachine(){
 				if (LickDI.isOn()){
 					lickDetected = true;
 					LickDI.clear();
-
 					// Increase trial counter,
 					NosepokeStrucImpureVar.trialCounter++;
 					int unsigned randomNumber = random(100);
@@ -190,10 +196,41 @@ void NosepokeStrucImpureMachine(){
 				ReportData(-52, 0, (millis()-stateMachineStartTime));
 			}
 
-			// Report no reward/ miss trials. 
+			// Report miss trials. 
 			if (rewardFlag == false){
 				ReportData(86, 1, (millis()-stateMachineStartTime));	
 			}
+
+			// Trial end epoch and unified trial summary log (eventCode 200 reserved)
+			unsigned long trialEndEpoch = now();
+
+			// Note: trialCounter increments only on rewarded (licked) trials per existing logic;
+			// missed trials will repeat the previous counter value.
+			uint64_t trialEndTime = epochMillis();
+			if (lickDetected==true){
+			ReportTrialSummary(200,
+				NosepokeStrucImpureVar.probArray[0],
+				NosepokeStrucImpureVar.probArray[1],
+				rewardFlag ? 1 : 0,
+				NosepokeStrucImpureVar.trialCounter,
+				NosepokeStrucImpureVar.blockNum,
+				sessionStartTime,
+				blockStartTime,
+				trialStartTime,
+				trialEndTime);
+			}else{
+			ReportTrialSummary(201,
+				NosepokeStrucImpureVar.probArray[0],
+				NosepokeStrucImpureVar.probArray[1],
+				-1,
+				NosepokeStrucImpureVar.trialCounter,
+				NosepokeStrucImpureVar.blockNum,
+				sessionStartTime,
+				blockStartTime,
+				trialStartTime,
+				trialEndTime);
+			}
+
 
 			// change block number if required
 			if (changeBlock()){
@@ -202,13 +239,21 @@ void NosepokeStrucImpureMachine(){
 				break;
 			}
 		} // if nosepoked
+
+		if (epochMillis()-sessionStartTime>40*3600*1000){
+			// End the session
+			stateStop = 1;
+		}
+
+
 	} // while (1) loop
+
 
 	if (restartBlock == true){ // restart the session.
 		restartBlock = false;
 		NosepokeStrucImpureMachine();
 	}
-}	
+}
 
 #endif	
 
