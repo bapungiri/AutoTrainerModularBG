@@ -20,35 +20,35 @@
 #include "StateMachines/SpecificFunctions.h"        // Include share function between state machines
 #include "StateMachineHeaders.h"                    // Define state machines
 
-
 // -----------------------------------------   setup()
-void setup() {
+void setup()
+{
   /*
   setup() is run once when the device is powered or rebooted
   */
 
-  randomSeed(analogRead(0));   // Initializes the pseudo-random number generator
+  randomSeed(analogRead(0)); // Initializes the pseudo-random number generator
 
-  Serial.begin(1000000);       // Initialize main   serial communication
-  anSerial.begin(1000000);     // Initialize analog serial communication
+  Serial.begin(1000000);   // Initialize main   serial communication
+  anSerial.begin(1000000); // Initialize analog serial communication
 
-  WaitForSerialConnections();  // Wait for serial and analog USB serial
+  WaitForSerialConnections(); // Wait for serial and analog USB serial
 
-  SyncInitialTime();           // Sync time before entering loop()
-  SetInitialVariables();       // Set initial variables
-  SetHardwareConfig();         // Configure hardware and interrupt handlers
-  SetInitialAlarms();          // Set initial alarms
-  FinalSetup();                // Send initial information to RPi
+  SyncInitialTime();     // Sync time before entering loop()
+  SetInitialVariables(); // Set initial variables
+  SetHardwareConfig();   // Configure hardware and interrupt handlers
+  SetInitialAlarms();    // Set initial alarms
+  FinalSetup();          // Send initial information to RPi
 }
 
 // -----------------------------------------   loop()
-void loop() {
+void loop()
+{
   /*
   loop() is the main function that keeps repeating until program stops
   */
 
-  HouseKeeping();                           // Check alarms by using alarm delay
+  HouseKeeping(); // Check alarms by using alarm delay
 
-  
-  stateMachineFunc[currentStateMachine]();  // Run the current state machine
+  stateMachineFunc[currentStateMachine](); // Run the current state machine
 }

@@ -72,7 +72,7 @@ static int checkSMStateStopGeneric(const NosepokeImpureStruct &st)
     return 0;
 }
 
-inline void NosepokeImpureMachine(NosepokeImpureStruct &st)
+inline void NosepokeImpureMachineCore(NosepokeImpureStruct &st)
 {
     // ---------for unstructured probability
     int unstrProb = 80;
@@ -205,6 +205,16 @@ inline void NosepokeImpureMachine(NosepokeImpureStruct &st)
             break;
     } // end blocks loop
     checkSMStateStopGeneric(st);
+}
+
+// Parameterless wrapper required by the generic state machine function pointer array.
+// The macro system declares/uses void NosepokeImpureMachine(void); so we provide an
+// overload that owns a persistent state struct and delegates to the core implementation.
+// Using a function-local static ensures a single instance per program (not per TU).
+inline void NosepokeImpureMachine()
+{
+    static NosepokeImpureStruct st = {0, {0, 0}, 0, 0, 0, 0};
+    NosepokeImpureMachineCore(st); // call the core overload taking a reference
 }
 
 #endif
