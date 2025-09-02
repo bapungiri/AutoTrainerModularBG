@@ -6,7 +6,7 @@
 #define _SetStateMachineTP_h
 
 // Define number of state machines, training protocols, and max number of stages
-#define numStates            18            // Number of state machines
+#define numStates            17            // Number of state machines (removed separate Struc/Unstruc wrappers)
 #define numTrainingProtocol  1            // Number of training protocol
 #define maxNumStage          7            // Maximum number of stages in training protocols
 
@@ -23,10 +23,9 @@
         SM(LickTrain)                        \
         SM(NosepokeRewardNonSession)         \
         SM(Nosepoke1sound)                   \
-        SM(NosepokeProb70)                   \ 
+        SM(NosepokeProb70)                   \
         SM(NosepokeProb40)                   \
-        SM(NosepokeUnstrucImpure)            \
-        SM(NosepokeStrucImpure)              \
+        SM(NosepokeImpureShared)             \
         SM(ReadSessionParams)                \
         SM(DoNothing)                        \
 
@@ -75,7 +74,7 @@ stateMachine trainingProtocol [numTrainingProtocol][maxNumStage][3] =  {
 // {Nosepoke1sound,         DoNothing},
 // {NosepokeProb70,         DoNothing},
 // {NosepokeProb40,	       DoNothing},
-{NosepokeStrucImpure,  DoNothing}
+{NosepokeImpureShared,  DoNothing}
 }
 };
 #endif

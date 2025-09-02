@@ -5,6 +5,10 @@
 #ifndef _GeneralFunctions_h
 #define _GeneralFunctions_h
 
+// Global configurable probability (percent) of drawing an unstructured pair for NosepokeImpureShared.
+// Set this per animal before launching the NosepokeImpureShared state machine.
+int g_unstructuredProbSetting = 80; // default
+
 // -----------------------------------------   CreateHDW_DI
 void CreateHDW_DI(DI_HDW &pin, String pinNAM, uint8_t pinN, OnInterruptFunc Func, int interruptMode){
   // Set basic pin properties
@@ -409,7 +413,7 @@ void ReportData(int type, int value, int sessionTime) {
 // -----------------------------------------   ReportTrialSummary
 // Writes a compact single CSV line capturing an entire trial.
 // Fields:
-// 0:eventCode,1:port1Prob,2:port2Prob,3:rewarded(1/0),4:trialId,5:blockId,6:trialStartEpoch,7:trialEndEpoch
+// 0:eventCode,1:port1Prob,2:port2Prob,3:rewarded(1/0),4:trialId,5:blockId,6:unstructuredProb,7:sessionStartEpochMs,8:blockStartEpochMs,9:trialStartEpochMs,10:trialEndEpochMs
 // This bypasses the queued ReportData system to avoid splitting across multiple lines.
 // Use a distinct eventCode (e.g., 200) to distinguish from regular ReportData lines.
 void ReportTrialSummary(int eventCode,
@@ -418,6 +422,7 @@ void ReportTrialSummary(int eventCode,
                         int rewarded,
                         int trialId,
                         int blockId,
+                        int unstructuredProb,
                         unsigned long sessionStartTime,
                         unsigned long blockStartTime,
                         unsigned long trialStartTime,
@@ -428,6 +433,7 @@ void ReportTrialSummary(int eventCode,
   Serial.print(rewarded); Serial.print(',');
   Serial.print(trialId); Serial.print(',');
   Serial.print(blockId); Serial.print(',');
+  Serial.print(unstructuredProb); Serial.print(',');
   Serial.print(sessionStartTime); Serial.print(',');
   Serial.print(blockStartTime); Serial.print(',');
   Serial.print(trialStartTime); Serial.print(',');
