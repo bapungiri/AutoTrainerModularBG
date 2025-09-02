@@ -108,6 +108,25 @@ struct reportStruct {
 QueueArray <reportStruct> reportQueue;
 reportStruct ReportStr, ReportPrintStr;
 
+// Queue for trial summary data (multi-field single-line records)
+struct trialSummaryStruct {
+  trialSummaryStruct() : eventCode(-1), port1Prob(-1), port2Prob(-1), rewarded(0), trialId(0), blockId(0), unstructuredProb(0), sessionStartTime(0), blockStartTime(0), trialStartTime(0), trialEndTime(0) {}
+  int eventCode;             // 200 = lick trial summary, 201 = missed trial summary (or per calling code)
+  int port1Prob;             // probability assigned to port 1 for that trial/block
+  int port2Prob;             // probability assigned to port 2 for that trial/block
+  int rewarded;              // 1 rewarded, 0 unrewarded lick, -1 missed (no lick)
+  int trialId;               // lick trial counter value (stable across missed since not incremented)
+  int blockId;               // block number
+  int unstructuredProb;      // percent chance environment was unstructured for this subject/config
+  unsigned long sessionStartTime; // epoch ms session start
+  unsigned long blockStartTime;   // epoch ms block start
+  unsigned long trialStartTime;   // epoch ms trial start
+  unsigned long trialEndTime;     // epoch ms trial end
+};
+
+QueueArray<trialSummaryStruct> trialSummaryQueue;
+trialSummaryStruct TrialSummaryStr, TrialSummaryPrintStr;
+
 // Pointer to read analog circular buffer
 unsigned long *anBufferCopy;   // e.g., anBufferCopy = LeverAI.anBuffer.readBuffer(); anBufferCopy[0] --> anBufferCopy[2047]
 
