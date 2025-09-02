@@ -171,7 +171,7 @@ inline void RunNosepokeImpureMachine(NosepokeImpureState &st, int unstrProb){
 
 
 // Inline variable allows single definition across translation units (C++17); adjust per animal before run.
-inline int g_unstructuredProbSetting = 80; 
+int g_unstructuredProbSetting = 80; 
 static NosepokeImpureState g_nosepokeImpureState = {0,{0,0},0,0,0,0};
 
 inline void NosepokeImpureSharedMachine(){

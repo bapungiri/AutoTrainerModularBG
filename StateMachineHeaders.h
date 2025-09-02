@@ -21,7 +21,7 @@
 #include "StateMachines/NosepokeProbDependentMachine.h"
 #include "StateMachines/NosepokeProbIndependentMachine.h"
 #include "StateMachines/NosepokeProb40Machine.h"
-#include "StateMachines/NosepokeImpureShared.h"
+#include "StateMachines/NosepokeImpureMachine.h"
 #include "StateMachines/ReadSessionParamsMachine.h"
 #include "StateMachines/DoNothingMachine.h"
 //<--[0]

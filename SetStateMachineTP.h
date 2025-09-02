@@ -25,7 +25,7 @@
         SM(Nosepoke1sound)                   \
         SM(NosepokeProb70)                   \
         SM(NosepokeProb40)                   \
-        SM(NosepokeImpureShared)             \
+  SM(NosepokeImpure)                   \
         SM(ReadSessionParams)                \
         SM(DoNothing)                        \
 
@@ -74,7 +74,7 @@ stateMachine trainingProtocol [numTrainingProtocol][maxNumStage][3] =  {
 // {Nosepoke1sound,         DoNothing},
 // {NosepokeProb70,         DoNothing},
 // {NosepokeProb40,	       DoNothing},
-{NosepokeImpureShared,  DoNothing}
+{NosepokeImpure,  DoNothing}
 }
 };
 #endif
