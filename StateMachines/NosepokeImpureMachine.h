@@ -57,7 +57,7 @@ static int changeBlockGeneric(const NosepokeImpureStruct &st)
     return 0;
 }
 
-static int checkSMStateStopGeneric(const NosepokeImpureState &st)
+static int checkSMStateStopGeneric(const NosepokeImpureStruct &st)
 {
     if (stateStop)
     {
@@ -72,8 +72,12 @@ static int checkSMStateStopGeneric(const NosepokeImpureState &st)
     return 0;
 }
 
-inline void NosepokeImpureMachine(NosepokeImpureStruct &st, int unstrProb)
+inline void NosepokeImpureMachine(NosepokeImpureStruct &st)
 {
+    // ---------for unstructured probability
+    int unstrProb = 80;
+    // -----------------
+
     st.unstructuredProb = unstrProb; // store for logging
     RunStartANDEndStateMachine(&startStateMachine);
     InitializeStateMachine();
