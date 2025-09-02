@@ -5,9 +5,6 @@
 #ifndef _GeneralFunctions_h
 #define _GeneralFunctions_h
 
-// Global configurable probability (percent) of drawing an unstructured pair for NosepokeImpureShared.
-// Set this per animal before launching the NosepokeImpureShared state machine.
-int g_unstructuredProbSetting = 80; // default
 
 // -----------------------------------------   CreateHDW_DI
 void CreateHDW_DI(DI_HDW &pin, String pinNAM, uint8_t pinN, OnInterruptFunc Func, int interruptMode){

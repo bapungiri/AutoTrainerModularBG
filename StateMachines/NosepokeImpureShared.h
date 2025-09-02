@@ -1,7 +1,4 @@
 // Shared implementation for Struc/Unstruc Impure nosepoke state machines.
-// Parameterizes only the probability (unstrProb) of drawing an unstructured pair.
-// unstrProb = 20  -> mostly structured (complementary) blocks
-// unstrProb = 80  -> mostly unstructured (independent) blocks
 // Additional wrapper headers call RunNosepokeImpureMachine with desired value.
 
 #ifndef _NosepokeImpureShared_h
@@ -167,7 +164,14 @@ inline void RunNosepokeImpureMachine(NosepokeImpureState &st, int unstrProb){
 }
 
 // Global instance & user-configurable probability (set before selecting this state machine)
-extern int g_unstructuredProbSetting; // defined elsewhere (user sets per animal)
+
+// Parameterizes only the probability (unstrProb) of drawing an unstructured pair.
+// unstrProb = 20  -> mostly structured (complementary) blocks
+// unstrProb = 80  -> mostly unstructured (independent) blocks
+
+
+// Inline variable allows single definition across translation units (C++17); adjust per animal before run.
+inline int g_unstructuredProbSetting = 80; 
 static NosepokeImpureState g_nosepokeImpureState = {0,{0,0},0,0,0,0};
 
 inline void NosepokeImpureSharedMachine(){
