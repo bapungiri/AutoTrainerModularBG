@@ -339,56 +339,57 @@ void HouseKeeping(unsigned long delayT = 0)
   }
 
   unsigned long t44 = millis();
-  while ((!reportQueue.isEmpty()) && ((millis() - t44) < delayT))
+  // Fair interleaved draining of both queues so trial summaries are not starved
+  while ((millis() - t44) < delayT && (!reportQueue.isEmpty() || !trialSummaryQueue.isEmpty()))
   {
-    ReportPrintStr = reportQueue.dequeue();
-
-    Serial.print(ReportPrintStr.eventType);
-    Serial.print(',');
-    Serial.print(ReportPrintStr.value);
-    Serial.print(',');
-    Serial.print(ReportPrintStr.currentSM);
-    Serial.print(',');
-    Serial.print(ReportPrintStr.currentTP);
-    Serial.print(',');
-    Serial.print(ReportPrintStr.smTime);
-    Serial.print(',');
-    Serial.print(ReportPrintStr.nowTime);
-    Serial.print(',');
-    Serial.print(ReportPrintStr.dIntake);
-    Serial.print(',');
-    Serial.print(ReportPrintStr.wIntake);
-    Serial.println();
-  }
-
-  // After regular event queue, flush trial summaries within remaining time budget
-  while ((!trialSummaryQueue.isEmpty()) && ((millis() - t44) < delayT))
-  {
-    TrialSummaryPrintStr = trialSummaryQueue.dequeue();
-    Serial.print(TrialSummaryPrintStr.eventCode);
-    Serial.print(',');
-    Serial.print(TrialSummaryPrintStr.port1Prob);
-    Serial.print(',');
-    Serial.print(TrialSummaryPrintStr.port2Prob);
-    Serial.print(',');
-    Serial.print(TrialSummaryPrintStr.chosenPort);
-    Serial.print(',');
-    Serial.print(TrialSummaryPrintStr.rewarded);
-    Serial.print(',');
-    Serial.print(TrialSummaryPrintStr.trialId);
-    Serial.print(',');
-    Serial.print(TrialSummaryPrintStr.blockId);
-    Serial.print(',');
-    Serial.print(TrialSummaryPrintStr.unstructuredProb);
-    Serial.print(',');
-    Serial.print((unsigned long)TrialSummaryPrintStr.sessionStartEpochMs); // may truncate if >32-bit, intentional for CSV brevity
-    Serial.print(',');
-    Serial.print(TrialSummaryPrintStr.blockStartRelMs);
-    Serial.print(',');
-    Serial.print(TrialSummaryPrintStr.trialStartRelMs);
-    Serial.print(',');
-    Serial.print(TrialSummaryPrintStr.trialEndRelMs);
-    Serial.println();
+    if (!reportQueue.isEmpty())
+    {
+      ReportPrintStr = reportQueue.dequeue();
+      Serial.print(ReportPrintStr.eventType);
+      Serial.print(',');
+      Serial.print(ReportPrintStr.value);
+      Serial.print(',');
+      Serial.print(ReportPrintStr.currentSM);
+      Serial.print(',');
+      Serial.print(ReportPrintStr.currentTP);
+      Serial.print(',');
+      Serial.print(ReportPrintStr.smTime);
+      Serial.print(',');
+      Serial.print(ReportPrintStr.nowTime);
+      Serial.print(',');
+      Serial.print(ReportPrintStr.dIntake);
+      Serial.print(',');
+      Serial.print(ReportPrintStr.wIntake);
+      Serial.println();
+    }
+    if (!trialSummaryQueue.isEmpty() && (millis() - t44) < delayT)
+    {
+      TrialSummaryPrintStr = trialSummaryQueue.dequeue();
+      Serial.print(TrialSummaryPrintStr.eventCode);
+      Serial.print(',');
+      Serial.print(TrialSummaryPrintStr.port1Prob);
+      Serial.print(',');
+      Serial.print(TrialSummaryPrintStr.port2Prob);
+      Serial.print(',');
+      Serial.print(TrialSummaryPrintStr.chosenPort);
+      Serial.print(',');
+      Serial.print(TrialSummaryPrintStr.rewarded);
+      Serial.print(',');
+      Serial.print(TrialSummaryPrintStr.trialId);
+      Serial.print(',');
+      Serial.print(TrialSummaryPrintStr.blockId);
+      Serial.print(',');
+      Serial.print(TrialSummaryPrintStr.unstructuredProb);
+      Serial.print(',');
+      Serial.print((unsigned long)TrialSummaryPrintStr.sessionStartEpochMs);
+      Serial.print(',');
+      Serial.print(TrialSummaryPrintStr.blockStartRelMs);
+      Serial.print(',');
+      Serial.print(TrialSummaryPrintStr.trialStartRelMs);
+      Serial.print(',');
+      Serial.print(TrialSummaryPrintStr.trialEndRelMs);
+      Serial.println();
+    }
   }
 
   if ((millis() - t44) > delayT)
