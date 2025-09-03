@@ -83,16 +83,23 @@ inline void NosepokeImpureMachineCore(NosepokeImpureStruct &st)
     InitializeStateMachine();
     if (st.sessionStartMs == 0)
         st.sessionStartMs = epochMillis();
+
+    // Session only runs for 40 minutes
     const unsigned long SESSION_LIMIT_MS = 40UL * 60UL * 1000UL; // 40 minutes
 
     while (!stateStop)
-    { // block loop
-        uint64_t blockStartTime = epochMillis();
+    {                                                           // block loop
+        int blockStartTime = epochMillis() - st.sessionStartMs; // Relative to session start
+
+        // Increment block but reset reward and trial counters
         st.blockNum++;
         st.trialCounter = 0;
         st.rewardCounter = 0;
+
+        // Draw new reward probabilities
         updateRewProbGeneric(st, unstrProb);
         reportProbGeneric(st);
+
         int n = 0; // port index (1 or 2)
         int rewardPercent = 0;
 
@@ -108,24 +115,29 @@ inline void NosepokeImpureMachineCore(NosepokeImpureStruct &st)
 
             if (Nosepoke1DI.isOn() || Nosepoke2DI.isOn())
             {
-                uint64_t trialStartTime = epochMillis();
+                // Trial starts when nosepoke detected
+                int trialStartTime = epochMillis() - st.sessionStartMs;
                 unsigned int whenNosepoke = (millis() - stateMachineStartTime);
-                uint8_t recordNosepoke[2] = {Nosepoke1DI.diRead(), Nosepoke2DI.diRead()};
-                int whichnosepoke[2] = {1, 2};
-                for (int i = 0; i <= 1; ++i)
-                {
-                    if (recordNosepoke[i] == 1)
-                        n = whichnosepoke[i];
-                }
-                WhichNosepoke(whenNosepoke);
+
+                // Detect which port
+                n = Nosepoke1DI.diRead() ? 1 : (Nosepoke2DI.diRead() ? 2 : n);
+
+                // Reporting port number and time of nosepoke, removed WhichNosepoke()
+                ReportData(81, n, whenNosepoke);
+                Nosepoke1DI.clear();
+                Nosepoke2DI.clear();
+
+                // Retrieving reward probability for chosen port and reporting
                 rewardPercent = st.probArray[n - 1];
                 ReportData(88, rewardPercent, (millis() - stateMachineStartTime));
                 bool rewardFlag = false;
 
+                // Deliver auditory cue for 500ms
                 SpeakerPwdAO.on(50);
                 delayHK(500);
                 SpeakerPwdAO.off(0);
 
+                // Lick window of 5s starts
                 unsigned long lickWindowStart = millis();
                 bool lickDetected = false;
                 while ((millis() - lickWindowStart) <= 5000)
@@ -138,10 +150,14 @@ inline void NosepokeImpureMachineCore(NosepokeImpureStruct &st)
                     }
                     if (LickDI.isOn())
                     {
+                        // Only valid lick trials are counted as trialCounter
+                        st.trialCounter++;
                         lickDetected = true;
                         LickDI.clear();
-                        st.trialCounter++; // lick trial
+
+                        // Draw random number for reward determination
                         unsigned int randomNumber = random(100);
+
                         if (randomNumber < rewardPercent)
                         {
                             GiveReward(1);
@@ -165,34 +181,39 @@ inline void NosepokeImpureMachineCore(NosepokeImpureStruct &st)
                     ReportData(86, 1, (millis() - stateMachineStartTime));
                 }
 
-                uint64_t trialEndTime = epochMillis();
+                // Calculate trial end time relative to session start time
+                int trialEndTime = epochMillis() - st.sessionStartMs;
+
+                // Report data for .dat file
                 if (lickDetected)
                 {
-                    ReportTrialSummary(200,
-                                       st.probArray[0],
-                                       st.probArray[1],
-                                       rewardFlag ? 1 : 0,
-                                       st.trialCounter,
-                                       st.blockNum,
-                                       st.unstructuredProb,
-                                       (unsigned long)st.sessionStartMs,
-                                       (unsigned long)blockStartTime,
-                                       (unsigned long)trialStartTime,
-                                       (unsigned long)trialEndTime);
+                    ReportTrialSummary(200,                 // Event code
+                                       st.probArray[0],     // Port1
+                                       st.probArray[1],     // Port2
+                                       n,                   // Chosen port
+                                       rewardFlag ? 1 : 0,  // Reward
+                                       st.trialCounter,     // Trial ID
+                                       st.blockNum,         // block ID
+                                       st.unstructuredProb, // Environment type
+                                       st.sessionStartMs,   // Session start epoch (64-bit)
+                                       blockStartTime,      // Block start rel ms
+                                       trialStartTime,      // Trial start rel ms
+                                       trialEndTime);       // Trial end rel ms
                 }
                 else
                 {
                     ReportTrialSummary(201,
                                        st.probArray[0],
                                        st.probArray[1],
-                                       -1,
+                                       n,  // Chosen port = 0 for missed trial
+                                       -1, // Didn't attempt
                                        st.trialCounter,
                                        st.blockNum,
                                        st.unstructuredProb,
-                                       (unsigned long)st.sessionStartMs,
-                                       (unsigned long)blockStartTime,
-                                       (unsigned long)trialStartTime,
-                                       (unsigned long)trialEndTime);
+                                       st.sessionStartMs,
+                                       blockStartTime,
+                                       trialStartTime,
+                                       trialEndTime);
                 }
 
                 if (changeBlockGeneric(st))

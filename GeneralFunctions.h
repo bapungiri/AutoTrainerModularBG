@@ -371,6 +371,8 @@ void HouseKeeping(unsigned long delayT = 0)
     Serial.print(',');
     Serial.print(TrialSummaryPrintStr.port2Prob);
     Serial.print(',');
+    Serial.print(TrialSummaryPrintStr.chosenPort);
+    Serial.print(',');
     Serial.print(TrialSummaryPrintStr.rewarded);
     Serial.print(',');
     Serial.print(TrialSummaryPrintStr.trialId);
@@ -379,13 +381,13 @@ void HouseKeeping(unsigned long delayT = 0)
     Serial.print(',');
     Serial.print(TrialSummaryPrintStr.unstructuredProb);
     Serial.print(',');
-    Serial.print(TrialSummaryPrintStr.sessionStartTime);
+    Serial.print((unsigned long)TrialSummaryPrintStr.sessionStartEpochMs); // may truncate if >32-bit, intentional for CSV brevity
     Serial.print(',');
-    Serial.print(TrialSummaryPrintStr.blockStartTime);
+    Serial.print(TrialSummaryPrintStr.blockStartRelMs);
     Serial.print(',');
-    Serial.print(TrialSummaryPrintStr.trialStartTime);
+    Serial.print(TrialSummaryPrintStr.trialStartRelMs);
     Serial.print(',');
-    Serial.print(TrialSummaryPrintStr.trialEndTime);
+    Serial.print(TrialSummaryPrintStr.trialEndRelMs);
     Serial.println();
   }
 
@@ -441,6 +443,8 @@ void delayHK(unsigned long delayT)
       Serial.print(',');
       Serial.print(TrialSummaryPrintStr.port2Prob);
       Serial.print(',');
+      Serial.print(TrialSummaryPrintStr.chosenPort);
+      Serial.print(',');
       Serial.print(TrialSummaryPrintStr.rewarded);
       Serial.print(',');
       Serial.print(TrialSummaryPrintStr.trialId);
@@ -449,13 +453,13 @@ void delayHK(unsigned long delayT)
       Serial.print(',');
       Serial.print(TrialSummaryPrintStr.unstructuredProb);
       Serial.print(',');
-      Serial.print(TrialSummaryPrintStr.sessionStartTime);
+      Serial.print((unsigned long)TrialSummaryPrintStr.sessionStartEpochMs);
       Serial.print(',');
-      Serial.print(TrialSummaryPrintStr.blockStartTime);
+      Serial.print(TrialSummaryPrintStr.blockStartRelMs);
       Serial.print(',');
-      Serial.print(TrialSummaryPrintStr.trialStartTime);
+      Serial.print(TrialSummaryPrintStr.trialStartRelMs);
       Serial.print(',');
-      Serial.print(TrialSummaryPrintStr.trialEndTime);
+      Serial.print(TrialSummaryPrintStr.trialEndRelMs);
       Serial.println();
       serialEvent();
     }
@@ -490,37 +494,37 @@ void ReportData(int type, int value, int sessionTime)
 
 // -----------------------------------------   ReportTrialSummary
 // Writes a compact single CSV line capturing an entire trial.
-// Fields:
-// 0:eventCode,1:port1Prob,2:port2Prob,3:rewarded(1/0),4:trialId,5:blockId,6:unstructuredProb,7:sessionStartEpochMs,8:blockStartEpochMs,9:trialStartEpochMs,10:trialEndEpochMs
 // Now uses its own queue (trialSummaryQueue) to remain non-blocking like ReportData.
 // Use distinct eventCodes (e.g., 200 lick trial, 201 missed trial) to distinguish from regular ReportData lines.
 void ReportTrialSummary(int eventCode,
                         int port1Prob,
                         int port2Prob,
+                        int chosenPort,
                         int rewarded,
                         int trialId,
                         int blockId,
                         int unstructuredProb,
-                        unsigned long sessionStartTime,
-                        unsigned long blockStartTime,
-                        unsigned long trialStartTime,
-                        unsigned long trialEndTime)
+                        uint64_t sessionStartEpochMs,
+                        unsigned long blockStartRelMs,
+                        unsigned long trialStartRelMs,
+                        unsigned long trialEndRelMs)
 {
   TrialSummaryStr.eventCode = eventCode;
   TrialSummaryStr.port1Prob = port1Prob;
   TrialSummaryStr.port2Prob = port2Prob;
+  TrialSummaryStr.chosenPort = chosenPort;
   TrialSummaryStr.rewarded = rewarded;
   TrialSummaryStr.trialId = trialId;
   TrialSummaryStr.blockId = blockId;
   TrialSummaryStr.unstructuredProb = unstructuredProb;
-  TrialSummaryStr.sessionStartTime = sessionStartTime;
-  TrialSummaryStr.blockStartTime = blockStartTime;
-  TrialSummaryStr.trialStartTime = trialStartTime;
-  TrialSummaryStr.trialEndTime = trialEndTime;
+  TrialSummaryStr.sessionStartEpochMs = sessionStartEpochMs;
+  TrialSummaryStr.blockStartRelMs = blockStartRelMs;
+  TrialSummaryStr.trialStartRelMs = trialStartRelMs;
+  TrialSummaryStr.trialEndRelMs = trialEndRelMs;
   trialSummaryQueue.enqueue(TrialSummaryStr);
 }
 
-// -----------------------------------------   GiveReward ## Pass pin class to make it more modular
+// --------------------   GiveReward ## Pass pin class to make it more modular
 void GiveReward(int numPulses)
 {
   ReportData(51, numPulses, (millis() - stateMachineStartTime));
