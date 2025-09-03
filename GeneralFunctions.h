@@ -381,7 +381,27 @@ void HouseKeeping(unsigned long delayT = 0)
       Serial.print(',');
       Serial.print(TrialSummaryPrintStr.unstructuredProb);
       Serial.print(',');
-      Serial.print((unsigned long)TrialSummaryPrintStr.sessionStartEpochMs);
+      // Full 64-bit session start epoch ms (previously truncated by cast)
+      {
+        uint64_t v = TrialSummaryPrintStr.sessionStartEpochMs;
+        if (v == 0)
+        {
+          Serial.print('0');
+        }
+        else
+        {
+          char buf[21];
+          buf[20] = '\0';
+          int idx = 20;
+          while (v > 0 && idx > 0)
+          {
+            uint8_t digit = v % 10ULL;
+            v /= 10ULL;
+            buf[--idx] = '0' + digit;
+          }
+          Serial.print(&buf[idx]);
+        }
+      }
       Serial.print(',');
       Serial.print(TrialSummaryPrintStr.blockStartRelMs);
       Serial.print(',');
@@ -454,7 +474,26 @@ void delayHK(unsigned long delayT)
       Serial.print(',');
       Serial.print(TrialSummaryPrintStr.unstructuredProb);
       Serial.print(',');
-      Serial.print((unsigned long)TrialSummaryPrintStr.sessionStartEpochMs);
+      {
+        uint64_t v = TrialSummaryPrintStr.sessionStartEpochMs;
+        if (v == 0)
+        {
+          Serial.print('0');
+        }
+        else
+        {
+          char buf[21];
+          buf[20] = '\0';
+          int idx = 20;
+          while (v > 0 && idx > 0)
+          {
+            uint8_t digit = v % 10ULL;
+            v /= 10ULL;
+            buf[--idx] = '0' + digit;
+          }
+          Serial.print(&buf[idx]);
+        }
+      }
       Serial.print(',');
       Serial.print(TrialSummaryPrintStr.blockStartRelMs);
       Serial.print(',');
