@@ -84,9 +84,6 @@ inline void NosepokeImpureMachineCore(NosepokeImpureStruct &st)
     if (st.sessionStartMs == 0)
         st.sessionStartMs = epochMillis();
 
-    // Session only runs for 40 minutes
-    const unsigned long SESSION_LIMIT_MS = 40UL * 60UL * 1000UL; // 40 minutes
-
     while (!stateStop)
     {                                                           // block loop
         int blockStartTime = epochMillis() - st.sessionStartMs; // Relative to session start
@@ -105,15 +102,7 @@ inline void NosepokeImpureMachineCore(NosepokeImpureStruct &st)
 
         while (!stateStop)
         { // trials loop
-            if ((epochMillis() - st.sessionStartMs) >= SESSION_LIMIT_MS)
-            {
-                // Internal session duration reached before external Disable alarm.
-                // Select the non-session state (column 1) for the current stage so when
-                // checkSMStateStopGeneric() runs it transitions cleanly to DoNothing.
-                nextTrainingProtocol = currentTrainingProtocol; // remain in same protocol
-                GetCurrentNonSessionStateMachine();             // sets nextStateMachine
-                stateStop = 1;                                  // triggers termination path
-            }
+            // (Removed internal session duration limit; session end now controlled solely by Disable alarms or external stateStop triggers.)
             HouseKeeping();
             if (checkSMStateStopGeneric(st))
                 return;
