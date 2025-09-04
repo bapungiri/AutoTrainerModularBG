@@ -690,8 +690,13 @@ def printSerialOutput(ser, anSer, userConfig, analogEnabled, expStartTime):
         trialSummaryFileN = outputFileN.replace(".dat", ".trial.csv")
         createInitialFile(outputFileN, "a")
         createInitialFile(msgFileN, "a")
-        # Initialize trial summary file with header if empty
-        if os.path.getsize(trialSummaryFileN) == 0:
+        # Ensure trial summary file exists before size check
+        createInitialFile(trialSummaryFileN, "a")
+        try:
+            needHeader = os.path.getsize(trialSummaryFileN) == 0
+        except OSError:
+            needHeader = True
+        if needHeader:
             with open(trialSummaryFileN, "a") as tsf_init:
                 tsf_init.write(
                     "eventCode,port1Prob,port2Prob,chosenPort,rewarded,trialId,blockId,unstructuredProb,sessionStartEpochMs,blockStartRelMs,trialStartRelMs,trialEndRelMs\n"
@@ -979,11 +984,12 @@ def printSerialOutput(ser, anSer, userConfig, analogEnabled, expStartTime):
                 )
                 # Rotate trial summary file alongside main .dat file
                 trialSummaryFileN = outputFileN.replace(".dat", ".trial.csv")
-                if (
-                    not os.path.exists(trialSummaryFileN)
-                    or os.path.getsize(trialSummaryFileN) == 0
-                ):
-                    createInitialFile(trialSummaryFileN, "a")
+                createInitialFile(trialSummaryFileN, "a")
+                try:
+                    needHeader = os.path.getsize(trialSummaryFileN) == 0
+                except OSError:
+                    needHeader = True
+                if needHeader:
                     with open(trialSummaryFileN, "a") as tsf_init:
                         tsf_init.write(
                             "eventCode,port1Prob,port2Prob,chosenPort,rewarded,trialId,blockId,unstructuredProb,sessionStartEpochMs,blockStartRelMs,trialStartRelMs,trialEndRelMs\n"
