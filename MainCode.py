@@ -1,6 +1,8 @@
 #!/usr/bin/python
 
 import serial  # Python module to communicate with the Teensy serial
+import hashlib  # For checksum generation
+import zipfile  # For zipping session files
 import time  # Python time module
 import os  # Python operating system module (mkdir, rm, ...)
 import datetime  # Python date and time module for time purpose
@@ -702,6 +704,10 @@ def printSerialOutput(ser, anSer, userConfig, analogEnabled, expStartTime):
                     "eventCode,port1Prob,port2Prob,chosenPort,rewarded,trialId,blockId,unstructuredProb,sessionStartEpochMs,blockStartRelMs,trialStartRelMs,trialEndRelMs\n"
                 )
 
+        # Initialize counters for session integrity
+        dataLineCount = 0  # number of legacy 8-field lines written to .dat
+        trialSummaryLineCount = 0  # number of trial summary lines written to .trial.csv
+
         # Log the current date
         currentDate = datetime.datetime.now()
 
@@ -814,8 +820,8 @@ def printSerialOutput(ser, anSer, userConfig, analogEnabled, expStartTime):
                         # Detect trial summary lines (event codes >=200) independent of field count
                         isNumeric = words[0].isdigit()
                         if isNumeric and int(words[0]) >= 200:
-                            # Write full line to separate trial summary file (already newline terminated)
                             tsf.write(eachLine)
+                            trialSummaryLineCount += 1
                             continue
 
                         # Legacy regular output lines must have exactly 8 fields
@@ -869,6 +875,7 @@ def printSerialOutput(ser, anSer, userConfig, analogEnabled, expStartTime):
                                         writeLogFile(msgFileN, msgList)
 
                             f.write(eachLine)
+                            dataLineCount += 1
 
                 # Reset accumulated string
                 totalDataRead = ""
@@ -979,21 +986,55 @@ def printSerialOutput(ser, anSer, userConfig, analogEnabled, expStartTime):
 
             # Check output [result] file name and changed it daily
             if "Output_Name_Freq" in userConfig:
+                prevDat = outputFileN
+                prevTrial = trialSummaryFileN
+                prevDataCount = dataLineCount
+                prevTrialCount = trialSummaryLineCount
                 [currentDate, outputFileN] = changeOutputFileN(
                     currentDate, outputFileN, userConfig
                 )
-                # Rotate trial summary file alongside main .dat file
-                trialSummaryFileN = outputFileN.replace(".dat", ".trial.csv")
-                createInitialFile(trialSummaryFileN, "a")
-                try:
-                    needHeader = os.path.getsize(trialSummaryFileN) == 0
-                except OSError:
-                    needHeader = True
-                if needHeader:
-                    with open(trialSummaryFileN, "a") as tsf_init:
-                        tsf_init.write(
-                            "eventCode,port1Prob,port2Prob,chosenPort,rewarded,trialId,blockId,unstructuredProb,sessionStartEpochMs,blockStartRelMs,trialStartRelMs,trialEndRelMs\n"
-                        )
+                if prevDat != outputFileN:  # rotation occurred
+                    # Write rotation marker to old files (not counted in checksum metrics)
+                    rotEpoch = int(time.time())
+                    try:
+                        with open(prevDat, "a") as pf:
+                            pf.write(
+                                f"ROTATE,{rotEpoch},{prevDataCount},{prevTrialCount}\n"
+                            )
+                        with open(prevTrial, "a") as ptf:
+                            ptf.write(
+                                f"ROTATE,{rotEpoch},{prevDataCount},{prevTrialCount}\n"
+                            )
+                    except Exception:
+                        pass
+                    # Zip the completed pair
+                    zipName = prevDat.replace(".dat", ".session.zip")
+                    try:
+                        with zipfile.ZipFile(
+                            zipName, "w", compression=zipfile.ZIP_DEFLATED
+                        ) as zf:
+                            if os.path.exists(prevDat):
+                                zf.write(prevDat, arcname=os.path.basename(prevDat))
+                            if os.path.exists(prevTrial):
+                                zf.write(prevTrial, arcname=os.path.basename(prevTrial))
+                    except Exception as e:
+                        msgList = ["Error:", f"       Zipping failed on rotation: {e}"]
+                        writeLogFile(msgFileN, msgList)
+                    # Reset counters for new files
+                    dataLineCount = 0
+                    trialSummaryLineCount = 0
+                    # Prepare new trial summary file
+                    trialSummaryFileN = outputFileN.replace(".dat", ".trial.csv")
+                    createInitialFile(trialSummaryFileN, "a")
+                    try:
+                        needHeader = os.path.getsize(trialSummaryFileN) == 0
+                    except OSError:
+                        needHeader = True
+                    if needHeader:
+                        with open(trialSummaryFileN, "a") as tsf_init:
+                            tsf_init.write(
+                                "eventCode,port1Prob,port2Prob,chosenPort,rewarded,trialId,blockId,unstructuredProb,sessionStartEpochMs,blockStartRelMs,trialStartRelMs,trialEndRelMs\n"
+                            )
 
             # Check exit signal
             if exitInst.exitStatus:
@@ -1009,8 +1050,35 @@ def printSerialOutput(ser, anSer, userConfig, analogEnabled, expStartTime):
         f.close()
 
     finally:
+        # Session-end flush / integrity marker (with checksums & counts)
+        try:
+
+            def file_md5(p):
+                if not os.path.exists(p):
+                    return "NA"
+                h = hashlib.md5()
+                with open(p, "rb") as fh:
+                    for chunk in iter(lambda: fh.read(8192), b""):
+                        h.update(chunk)
+                return h.hexdigest()
+
+            dat_md5 = file_md5(outputFileN)
+            trial_md5 = file_md5(trialSummaryFileN)
+            epoch_end = int(time.time())
+            marker = f"SE,{epoch_end},{dataLineCount},{trialSummaryLineCount},{dat_md5},{trial_md5}\n"
+            with open(outputFileN, "a") as f_end:
+                f_end.write(marker)
+            with open(trialSummaryFileN, "a") as tsf_end:
+                tsf_end.write(marker)
+        except Exception as e:
+            msgList = ["Error:", f"       Failed to write session-end marker: {e}"]
+            writeLogFile(msgFileN, msgList)
+
         print("   ... The current time: " + getTimeFormat())
-        msgList = ["Program ended with exit signal = " + str(exitInst.exitStatus)]
+        msgList = [
+            "Program ended with exit signal = " + str(exitInst.exitStatus),
+            f'Session-End Marker: dataLines={dataLineCount}, trialLines={trialSummaryLineCount}, dat_md5={locals().get("dat_md5", "NA")}, trial_md5={locals().get("trial_md5", "NA")}',
+        ]
         writeLogFile(msgFileN, msgList)
 
 
