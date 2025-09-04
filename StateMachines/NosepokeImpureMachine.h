@@ -235,9 +235,9 @@ inline void NosepokeImpureMachineCore(NosepokeImpureStruct &st)
 // Using a function-local static ensures a single instance per program (not per TU).
 inline void NosepokeImpureMachine()
 {
-    static NosepokeImpureStruct st = {0, {0, 0}, 0, 0, 0, 0};
-    Serial.print("I'm");
-    NosepokeImpureMachineCore(st); // call the core overload taking a reference
+    // Non-static instance: resets every time this wrapper is invoked.
+    NosepokeImpureStruct st = {0, {0, 0}, 0, 0, 0, 0};
+    NosepokeImpureMachineCore(st);
 }
 
 #endif
