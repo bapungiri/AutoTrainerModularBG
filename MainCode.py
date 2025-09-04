@@ -999,11 +999,15 @@ def printSerialOutput(ser, anSer, userConfig, analogEnabled, expStartTime):
                     try:
                         with open(prevDat, "a") as pf:
                             pf.write(
-                                f"ROTATE,{rotEpoch},{prevDataCount},{prevTrialCount}\n"
+                                "ROTATE,{},{},{}\n".format(
+                                    rotEpoch, prevDataCount, prevTrialCount
+                                )
                             )
                         with open(prevTrial, "a") as ptf:
                             ptf.write(
-                                f"ROTATE,{rotEpoch},{prevDataCount},{prevTrialCount}\n"
+                                "ROTATE,{},{},{}\n".format(
+                                    rotEpoch, prevDataCount, prevTrialCount
+                                )
                             )
                     except Exception:
                         pass
@@ -1018,7 +1022,10 @@ def printSerialOutput(ser, anSer, userConfig, analogEnabled, expStartTime):
                             if os.path.exists(prevTrial):
                                 zf.write(prevTrial, arcname=os.path.basename(prevTrial))
                     except Exception as e:
-                        msgList = ["Error:", f"       Zipping failed on rotation: {e}"]
+                        msgList = [
+                            "Error:",
+                            "       Zipping failed on rotation: {0}".format(e),
+                        ]
                         writeLogFile(msgFileN, msgList)
                     # Reset counters for new files
                     dataLineCount = 0
@@ -1065,19 +1072,29 @@ def printSerialOutput(ser, anSer, userConfig, analogEnabled, expStartTime):
             dat_md5 = file_md5(outputFileN)
             trial_md5 = file_md5(trialSummaryFileN)
             epoch_end = int(time.time())
-            marker = f"SE,{epoch_end},{dataLineCount},{trialSummaryLineCount},{dat_md5},{trial_md5}\n"
+            marker = "SE,{},{},{},{},{}\n".format(
+                epoch_end, dataLineCount, trialSummaryLineCount, dat_md5, trial_md5
+            )
             with open(outputFileN, "a") as f_end:
                 f_end.write(marker)
             with open(trialSummaryFileN, "a") as tsf_end:
                 tsf_end.write(marker)
         except Exception as e:
-            msgList = ["Error:", f"       Failed to write session-end marker: {e}"]
+            msgList = [
+                "Error:",
+                "       Failed to write session-end marker: {0}".format(e),
+            ]
             writeLogFile(msgFileN, msgList)
 
         print("   ... The current time: " + getTimeFormat())
+        # Build session-end summary line without f-strings for wider Python compatibility
+        _dat_md5_val = locals().get("dat_md5", "NA")
+        _trial_md5_val = locals().get("trial_md5", "NA")
         msgList = [
             "Program ended with exit signal = " + str(exitInst.exitStatus),
-            f'Session-End Marker: dataLines={dataLineCount}, trialLines={trialSummaryLineCount}, dat_md5={locals().get("dat_md5", "NA")}, trial_md5={locals().get("trial_md5", "NA")}',
+            "Session-End Marker: dataLines={0}, trialLines={1}, dat_md5={2}, trial_md5={3}".format(
+                dataLineCount, trialSummaryLineCount, _dat_md5_val, _trial_md5_val
+            ),
         ]
         writeLogFile(msgFileN, msgList)
 
