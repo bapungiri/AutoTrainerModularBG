@@ -78,11 +78,15 @@ inline void NosepokeImpureMachineCore(NosepokeImpureStruct &st)
     int unstrProb = 80;
     // -----------------
 
+    Serial.print("I'm here");
+
     st.unstructuredProb = unstrProb; // store for logging
     RunStartANDEndStateMachine(&startStateMachine);
     InitializeStateMachine();
     if (st.sessionStartMs == 0)
         st.sessionStartMs = epochMillis();
+
+    st.blockNum = 0;
 
     while (!stateStop)
     {                                                           // block loop
@@ -102,7 +106,7 @@ inline void NosepokeImpureMachineCore(NosepokeImpureStruct &st)
 
         while (!stateStop)
         { // trials loop
-            // (Removed internal session duration limit; session end now controlled solely by Disable alarms or external stateStop triggers.)
+            // session end controlled solely by Disable alarms or external stateStop triggers.
             HouseKeeping();
             if (checkSMStateStopGeneric(st))
                 return;
@@ -136,7 +140,6 @@ inline void NosepokeImpureMachineCore(NosepokeImpureStruct &st)
                 bool lickDetected = false;
                 while ((millis() - lickWindowStart) <= 5000)
                 {
-                    HouseKeeping();
                     if (stateStop || checkSMStateStopGeneric(st))
                     {
                         lickDetected = false;
@@ -215,9 +218,13 @@ inline void NosepokeImpureMachineCore(NosepokeImpureStruct &st)
                     break; // start new block
                 }
             }
+            if (stateStop)
+                break;
+
         } // end trials loop
         if (stateStop)
             break;
+
     } // end blocks loop
     checkSMStateStopGeneric(st);
 }
@@ -229,6 +236,7 @@ inline void NosepokeImpureMachineCore(NosepokeImpureStruct &st)
 inline void NosepokeImpureMachine()
 {
     static NosepokeImpureStruct st = {0, {0, 0}, 0, 0, 0, 0};
+    Serial.print("I'm");
     NosepokeImpureMachineCore(st); // call the core overload taking a reference
 }
 
