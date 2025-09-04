@@ -1075,8 +1075,8 @@ def printSerialOutput(ser, anSer, userConfig, analogEnabled, expStartTime):
             marker = "SE,{},{},{},{},{}\n".format(
                 epoch_end, dataLineCount, trialSummaryLineCount, dat_md5, trial_md5
             )
-            with open(outputFileN, "a") as f_end:
-                f_end.write(marker)
+            # with open(outputFileN, "a") as f_end:
+            #     f_end.write(marker)
             with open(trialSummaryFileN, "a") as tsf_end:
                 tsf_end.write(marker)
         except Exception as e:

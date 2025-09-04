@@ -6,7 +6,7 @@
 #define _SetStateMachineTP_h
 
 // Define number of state machines, training protocols, and max number of stages
-#define numStates 17          // Number of state machines (removed separate Struc/Unstruc wrappers)
+#define numStates 16          // Number of state machines (removed separate Struc/Unstruc wrappers)
 #define numTrainingProtocol 1 // Number of training protocol
 #define maxNumStage 7         // Maximum number of stages in training protocols
 

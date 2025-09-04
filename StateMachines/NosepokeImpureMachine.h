@@ -74,7 +74,7 @@ static int checkSMStateStopGeneric(const NosepokeImpureStruct &st)
 
 inline void NosepokeImpureMachineCore(NosepokeImpureStruct &st)
 {
-    // ---------for unstructured probability
+    // ---------for unstructured probability--------
     int unstrProb = 80;
     // -----------------
 
@@ -107,7 +107,12 @@ inline void NosepokeImpureMachineCore(NosepokeImpureStruct &st)
         { // trials loop
             if ((epochMillis() - st.sessionStartMs) >= SESSION_LIMIT_MS)
             {
-                stateStop = 1;
+                // Internal session duration reached before external Disable alarm.
+                // Select the non-session state (column 1) for the current stage so when
+                // checkSMStateStopGeneric() runs it transitions cleanly to DoNothing.
+                nextTrainingProtocol = currentTrainingProtocol; // remain in same protocol
+                GetCurrentNonSessionStateMachine();             // sets nextStateMachine
+                stateStop = 1;                                  // triggers termination path
             }
             HouseKeeping();
             if (checkSMStateStopGeneric(st))
