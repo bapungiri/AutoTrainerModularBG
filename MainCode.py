@@ -1,21 +1,21 @@
 #!/usr/bin/python
 
-import serial            # Python module to communicate with the Teensy serial
-import time              # Python time module
-import os                # Python operating system module (mkdir, rm, ...)
-import datetime          # Python date and time module for time purpose
-import collections       # Python advanced data type [for analog buffer]
-import copy              # Python copy circular buffer in collections
-import subprocess        # Python subprocess to execute bash commands
-import ntplib            # Python Network Time Protocol (NTP)
-import smtplib           # Python SMTP for sending email to users
-import base64            # Python base64 data encodings
-import email.mime.text   # Python Multipurpose Internet Mail Extensions (MIME)
-import netifaces         # Python module to find device IP address
-import random            # Python random number module
+import serial  # Python module to communicate with the Teensy serial
+import time  # Python time module
+import os  # Python operating system module (mkdir, rm, ...)
+import datetime  # Python date and time module for time purpose
+import collections  # Python advanced data type [for analog buffer]
+import copy  # Python copy circular buffer in collections
+import subprocess  # Python subprocess to execute bash commands
+import ntplib  # Python Network Time Protocol (NTP)
+import smtplib  # Python SMTP for sending email to users
+import base64  # Python base64 data encodings
+import email.mime.text  # Python Multipurpose Internet Mail Extensions (MIME)
+import netifaces  # Python module to find device IP address
+import random  # Python random number module
 import RPi.GPIO as GPIO  # Python RPi GPIO utility
-import re                # Python regular expression module
-import signal            # Python signal module [e.g., exit signal]
+import re  # Python regular expression module
+import signal  # Python signal module [e.g., exit signal]
 from PIL import Image, ImageDraw, ImageFont  # Python Image module [change background]
 
 import pickle
@@ -46,7 +46,7 @@ def getTimeFormat():
     """
 
     now = datetime.datetime.now()
-    timeFormat = now.strftime('%Y-%m-%d-%H-%M-%S')
+    timeFormat = now.strftime("%Y-%m-%d-%H-%M-%S")
     return timeFormat
 
 
@@ -55,14 +55,14 @@ def writeLogFile(fileName, msgList):
     Function to write lines to user log file.
     """
 
-    msgFile = open(fileName, 'a')
-    msgFile.write('--------------- \n')
-    msgFile.write(getTimeFormat() + '\n')
+    msgFile = open(fileName, "a")
+    msgFile.write("--------------- \n")
+    msgFile.write(getTimeFormat() + "\n")
     for item in msgList:
-        if '\n' in item:
+        if "\n" in item:
             msgFile.write(item)
         else:
-            msgFile.write(item + '\n')
+            msgFile.write(item + "\n")
     msgFile.close()
 
 
@@ -73,15 +73,24 @@ def syncRPiTime(userConfig):
 
     try:
         client = ntplib.NTPClient()
-        response = client.request(userConfig['NTPServer'], timeout=5)
-        os.system('echo 3 | sudo date ' + time.strftime('%m%d%H%M%Y.%S', time.localtime(response.tx_time)) + '>/dev/null 2>&1')
-        print('   ... RPi Date & Time Synced with ' + userConfig['NTPServer'] + ': ' + getTimeFormat())
+        response = client.request(userConfig["NTPServer"], timeout=5)
+        os.system(
+            "echo 3 | sudo date "
+            + time.strftime("%m%d%H%M%Y.%S", time.localtime(response.tx_time))
+            + ">/dev/null 2>&1"
+        )
+        print(
+            "   ... RPi Date & Time Synced with "
+            + userConfig["NTPServer"]
+            + ": "
+            + getTimeFormat()
+        )
     except Exception as e:
-        print('   ... * EXCEPTION HAPPENED.')
-        print('   ... * System time sync with NTP server failed.')
-        print('   ... * Check network connection.')
-        print('   ... * Error : %s: %s \n' % (e.__class__, e))
-        exit('   ... * Exiting the program.')
+        print("   ... * EXCEPTION HAPPENED.")
+        print("   ... * System time sync with NTP server failed.")
+        print("   ... * Check network connection.")
+        print("   ... * Error : %s: %s \n" % (e.__class__, e))
+        exit("   ... * Exiting the program.")
 
 
 def backupFile(fileName):
@@ -92,13 +101,13 @@ def backupFile(fileName):
     if os.path.exists(fileName):
         fileNameOnly, fileExtension = os.path.splitext(fileName)
         now = datetime.datetime.now()
-        newFileName = ''.join([fileNameOnly, ' ',
-                               now.strftime('%Y-%m-%d %H-%M-%S'),
-                               fileExtension])
-        subprocess.call(['mv', fileName, newFileName])
-        print('   ... File ' + fileName + ' backed up.')
+        newFileName = "".join(
+            [fileNameOnly, " ", now.strftime("%Y-%m-%d %H-%M-%S"), fileExtension]
+        )
+        subprocess.call(["mv", fileName, newFileName])
+        print("   ... File " + fileName + " backed up.")
     else:
-        print('   ... File ' + fileName + ' created.')
+        print("   ... File " + fileName + " created.")
 
 
 def createInitialFile(fileName, fileStatus):
@@ -117,7 +126,7 @@ def getUserConfig(fileName, splitterChar):
     userConfig = {}
     with open(fileName) as configFile:
         for eachLine in configFile:
-            if '=' in eachLine:
+            if "=" in eachLine:
                 (settingName, settingValue) = eachLine.split(splitterChar)
                 settingName = settingName.strip()
                 settingValue = settingValue.strip()
@@ -130,16 +139,16 @@ def compileUploadTeensy(userConfig):
     Function to compile and upload Teensy code using Python subprocess module
     """
 
-    if userConfig['Reset_Teensy_Build'].lower() == 'true':
-        if os.path.exists('/home/pi/AutoTrainerModular/Build/'):
-            subprocess.call(['rm', '-rf', '/home/pi/AutoTrainerModular/Build/'])
+    if userConfig["Reset_Teensy_Build"].lower() == "true":
+        if os.path.exists("/home/pi/AutoTrainerModular/Build/"):
+            subprocess.call(["rm", "-rf", "/home/pi/AutoTrainerModular/Build/"])
 
-    if not os.path.exists('/home/pi/Build/'):
-        print('   ... Creating a new build directory.')
-        subprocess.call(['mkdir', '/home/pi/AutoTrainerModular/Build/'])
+    if not os.path.exists("/home/pi/Build/"):
+        print("   ... Creating a new build directory.")
+        subprocess.call(["mkdir", "/home/pi/AutoTrainerModular/Build/"])
 
-    print('   ... Killing the previous Teensy process if running.')
-    subprocess.call(['pkill', 'teensy'])
+    print("   ... Killing the previous Teensy process if running.")
+    subprocess.call(["pkill", "teensy"])
 
     compileCmd = "arduino-cli compile -v /home/pi/AutoTrainerModular/AutoTrainerModular.ino \
                   --fqbn teensy:avr:teensy41 \
@@ -151,34 +160,38 @@ def compileUploadTeensy(userConfig):
     uploadCmd = "teensy_loader_cli -w /home/pi/AutoTrainerModular/Build/AutoTrainerModular.ino.hex --mcu=TEENSY41 -sv"
 
     try:
-        print('   ... Compiling and uploading the *.ino file.')
+        print("   ... Compiling and uploading the *.ino file.")
 
-        subClient = subprocess.Popen("(echo COMPILING; %s || echo FAILED TO COMPILE; exit 1) || (echo UPLOADING; (%s || %s) || echo FAILED TO UPLOAD)" %\
-                                     (compileCmd, uploadCmd, uploadCmd),
-                                     shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        subClient = subprocess.Popen(
+            "(echo COMPILING; %s || echo FAILED TO COMPILE; exit 1) || (echo UPLOADING; (%s || %s) || echo FAILED TO UPLOAD)"
+            % (compileCmd, uploadCmd, uploadCmd),
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
 
         # subClient = subprocess.Popen("%s || echo FAILED TO UPLOAD; exit 1" % compileCmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         subOutput, subError = subClient.communicate()
 
-        if 'FAILED' in subOutput:
-            raise Exception('Error in uploading Teensy code.')
+        if "FAILED" in subOutput:
+            raise Exception("Error in uploading Teensy code.")
 
-        print('   ... Program uploaded to Teensy board successfully.')
+        print("   ... Program uploaded to Teensy board successfully.")
 
     except Exception as e:
-        print('   ... * EXCEPTION HAPPENED.')
-        print('   ... * Teensy code failed compilation or upload processes.')
-        print('   ... * Check Teensy code and serial port & run the program.')
-        print('   ... * Error : %s: %s \n' % (e.__class__, e))
-        exit('   ... * Exiting the program.')
+        print("   ... * EXCEPTION HAPPENED.")
+        print("   ... * Teensy code failed compilation or upload processes.")
+        print("   ... * Check Teensy code and serial port & run the program.")
+        print("   ... * Error : %s: %s \n" % (e.__class__, e))
+        exit("   ... * Exiting the program.")
 
     finally:
-        print('   ... Arduino compiler output:')
-        print('   ... ========================')
+        print("   ... Arduino compiler output:")
+        print("   ... ========================")
         for line in subOutput.splitlines():
-            print(''.join(['   ... ', line]))
-        print('   ... ========================')
+            print("".join(["   ... ", line]))
+        print("   ... ========================")
 
 
 def getOpenPort(port0, port1):
@@ -205,14 +218,14 @@ def getOpenPort(port0, port1):
         if portIsOpen(port1):
             return port1
 
-        if (time.time() - timeRecordSerial > 10):
-            print('   ... * EXCEPTION HAPPENED.')
-            print('   ... * Serial ports '+port0+' , '+port1+' are not open.')
-            print('   ... * Try < dmesg | grep tty* > in Linux shell.')
-            print('   ... * Check serial and USB connections.')
-            exit('   ... * Error: exiting the program.')
+        if time.time() - timeRecordSerial > 10:
+            print("   ... * EXCEPTION HAPPENED.")
+            print("   ... * Serial ports " + port0 + " , " + port1 + " are not open.")
+            print("   ... * Try < dmesg | grep tty* > in Linux shell.")
+            print("   ... * Check serial and USB connections.")
+            exit("   ... * Error: exiting the program.")
 
-        time.sleep(1.0/10000.0)
+        time.sleep(1.0 / 10000.0)
 
 
 def getSerialConnection(port0, port1, bRate):
@@ -226,7 +239,7 @@ def getSerialConnection(port0, port1, bRate):
         bytesize=8,
         parity=serial.PARITY_NONE,
         stopbits=serial.STOPBITS_ONE,
-        timeout=0
+        timeout=0,
     )
 
     return ser
@@ -238,10 +251,10 @@ def checkSerialConnection(ser):
     """
 
     if not ser.isOpen():
-        print('   ... The ' + ser.port + ' is NOT open. Re-submit the job.')
+        print("   ... The " + ser.port + " is NOT open. Re-submit the job.")
         return False
     else:
-        print('   ... The serial port ' + ser.port + ' is open and ready.')
+        print("   ... The serial port " + ser.port + " is open and ready.")
         return True
 
 
@@ -254,7 +267,7 @@ def getDSTInfo(fileName):
     with open(fileName) as File:
         for L in File:
             L = L.strip()
-            S = L.split(',')
+            S = L.split(",")
             (Year, Days) = [S[0].strip(), [S[1].strip(), S[2].strip()]]
             DSTInfo[Year] = Days
     return DSTInfo
@@ -291,30 +304,40 @@ def syncTimeNTP(ser, userConfig, msgFileN=None):
     # Get the time from NTPServer
     try:
         client = ntplib.NTPClient()
-        response = client.request(userConfig['NTPServer'], timeout=5)
-        timeT = 'T' + str(response.tx_time + TimeDiffUTC)
+        response = client.request(userConfig["NTPServer"], timeout=5)
+        timeT = "T" + str(response.tx_time + TimeDiffUTC)
         ser.write(timeT)
         if msgFileN:
-            msgList = ['Info: syncTimeNTP', 'RPi Time: '+getTimeFormat(),
-                       'NTP Time: '+timeT.replace('T', ''),
-                       'NTP to Local: '+time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(float(response.tx_time)))]
+            msgList = [
+                "Info: syncTimeNTP",
+                "RPi Time: " + getTimeFormat(),
+                "NTP Time: " + timeT.replace("T", ""),
+                "NTP to Local: "
+                + time.strftime(
+                    "%Y-%m-%d %H:%M:%S", time.localtime(float(response.tx_time))
+                ),
+            ]
             writeLogFile(msgFileN, msgList)
         else:
-            print('   ... Teensy date and time synced with ' + userConfig['NTPServer'])
+            print("   ... Teensy date and time synced with " + userConfig["NTPServer"])
 
     except Exception as e:
         if msgFileN:
-            msgList = ['Error:',
-                       'EXCEPTION HAPPENED.',
-                       'The program could not sync Teensy time with NTP time server.',
-                       'Check the internet connection and re-run the program.',
-                       'Error : %s: %s \n' % (e.__class__, e)]
+            msgList = [
+                "Error:",
+                "EXCEPTION HAPPENED.",
+                "The program could not sync Teensy time with NTP time server.",
+                "Check the internet connection and re-run the program.",
+                "Error : %s: %s \n" % (e.__class__, e),
+            ]
             writeLogFile(msgFileN, msgList)
         else:
-            print('   ... * EXCEPTION HAPPENED.')
-            print('   ... * The program could not sync Teensy time with NTP time server.')
-            print('   ... * Check the internet connection and re-run the program.')
-            print('   ... * Error : %s: %s \n' % (e.__class__, e))
+            print("   ... * EXCEPTION HAPPENED.")
+            print(
+                "   ... * The program could not sync Teensy time with NTP time server."
+            )
+            print("   ... * Check the internet connection and re-run the program.")
+            print("   ... * Error : %s: %s \n" % (e.__class__, e))
             exitInst.exitStatus = True
             return
 
@@ -324,43 +347,55 @@ def sendEmail(errorMessage, userConfig, msgFileN, emailSubject=None):
     Function to send customized emails to users.
     """
 
-    if userConfig['Enable_Email'].lower() == 'true':
-        recipientName = userConfig['Name']
-        recipientEmail = userConfig['Email']
-        emailUser = userConfig['WD_Email']
+    if userConfig["Enable_Email"].lower() == "true":
+        recipientName = userConfig["Name"]
+        recipientEmail = userConfig["Email"]
+        emailUser = userConfig["WD_Email"]
 
-        tmpCred = userConfig['WD_Pass'].split('|||')
+        tmpCred = userConfig["WD_Pass"].split("|||")
         for i in range(int(tmpCred[0])):
             tmpCred[1] = base64.b64decode(tmpCred[1])
         emailPass = tmpCred[1]
 
-        ipAddress = netifaces.ifaddresses('eth0')[netifaces.AF_INET][0]['addr']
+        ipAddress = netifaces.ifaddresses("eth0")[netifaces.AF_INET][0]["addr"]
 
         sent_from = emailUser
         to = [recipientEmail]
 
         if emailSubject is None:
-            subject = 'Issue with experiment in box: ' + userConfig['Box_Name']
+            subject = "Issue with experiment in box: " + userConfig["Box_Name"]
         else:
-            subject = emailSubject + ' in box: ' + userConfig['Box_Name']
+            subject = emailSubject + " in box: " + userConfig["Box_Name"]
 
-        body = ''.join(['Hello ', recipientName, ',\n\n',
-                        'There is an issue with your experiment.\n\n',
-                        'The error message:\n\n', errorMessage, '\n\n',
-                        'Please check your box as soon as possible.\n\n',
-                        'Date and Time: ', getTimeFormat(), '\n\n',
-                        'The IP address: ', ipAddress, '\n\n',
-                        '-RPi Watchdog'])
+        body = "".join(
+            [
+                "Hello ",
+                recipientName,
+                ",\n\n",
+                "There is an issue with your experiment.\n\n",
+                "The error message:\n\n",
+                errorMessage,
+                "\n\n",
+                "Please check your box as soon as possible.\n\n",
+                "Date and Time: ",
+                getTimeFormat(),
+                "\n\n",
+                "The IP address: ",
+                ipAddress,
+                "\n\n",
+                "-RPi Watchdog",
+            ]
+        )
 
         try:
             msg = email.mime.text.MIMEText(body)
-            msg['Subject'] = subject
-            msg['From'] = emailUser
-            msg['To'] = recipientEmail
+            msg["Subject"] = subject
+            msg["From"] = emailUser
+            msg["To"] = recipientEmail
 
-            smtpAddress = userConfig['WD_SMTP'].lower()
-            smtpPort = int(userConfig['WD_SMTP_Port'])
-            if userConfig['WD_SSL'].lower() == 'true':
+            smtpAddress = userConfig["WD_SMTP"].lower()
+            smtpPort = int(userConfig["WD_SMTP_Port"])
+            if userConfig["WD_SSL"].lower() == "true":
                 s = smtplib.SMTP_SSL(smtpAddress, smtpPort)
             else:
                 s = smtplib.SMTP(smtpAddress, smtpPort)
@@ -370,13 +405,15 @@ def sendEmail(errorMessage, userConfig, msgFileN, emailSubject=None):
             s.sendmail(emailUser, recipientEmail, msg.as_string())
             s.close()
 
-            print('   ... An email sent to: ' + recipientName)
+            print("   ... An email sent to: " + recipientName)
 
         except Exception as e:
-            msgList = ['Error:',
-                       '       Error happened in sending email.',
-                       '       Email authentication failed.',
-                       '       Error : %s: %s' % (e.__class__, e)]
+            msgList = [
+                "Error:",
+                "       Error happened in sending email.",
+                "       Email authentication failed.",
+                "       Error : %s: %s" % (e.__class__, e),
+            ]
             writeLogFile(msgFileN, msgList)
 
 
@@ -386,8 +423,10 @@ def getAnalogDirPath(userConfig):
     """
 
     now = datetime.datetime.now()
-    analogFolderDateName = now.strftime('%Y-%m-%d')
-    analogDirPath = ''.join(['Analog-', userConfig['Subject_Name'], '/', analogFolderDateName])
+    analogFolderDateName = now.strftime("%Y-%m-%d")
+    analogDirPath = "".join(
+        ["Analog-", userConfig["Subject_Name"], "/", analogFolderDateName]
+    )
 
     if not os.path.exists(analogDirPath):
         os.makedirs(analogDirPath)
@@ -400,7 +439,9 @@ def getAnalogTempFileName(userConfig):
     Function to get temporary file name for analog files
     """
 
-    tempName = ''.join([getAnalogDirPath(userConfig), '/anTemp.', str(int(time.time()))])
+    tempName = "".join(
+        [getAnalogDirPath(userConfig), "/anTemp.", str(int(time.time()))]
+    )
 
     return tempName
 
@@ -412,20 +453,25 @@ def checkDailyWater(dailyWater, userConfig, msgFileN):
 
     if dailyWater > 0:
 
-        dailyWaterQuota = int(userConfig['Daily_Water'])
-        minWaterPercentage = int(userConfig['Water_Minimum'].replace('%', ''))
-        minWater = int(minWaterPercentage*1.0/100*dailyWaterQuota)
+        dailyWaterQuota = int(userConfig["Daily_Water"])
+        minWaterPercentage = int(userConfig["Water_Minimum"].replace("%", ""))
+        minWater = int(minWaterPercentage * 1.0 / 100 * dailyWaterQuota)
 
         if dailyWater < minWater:
-            emailSubject = 'Low daily water consumption'
-            emailText = ''.join(['Your subject consumed ',
-                                 str(dailyWater), ' pulses of water.',
-                                 ' It is less than ',
-                                 str(minWaterPercentage),
-                                 '% of daily water quota of ',
-                                 str(dailyWaterQuota),
-                                 ' pulses'])
-            time.sleep(1*random.random())
+            emailSubject = "Low daily water consumption"
+            emailText = "".join(
+                [
+                    "Your subject consumed ",
+                    str(dailyWater),
+                    " pulses of water.",
+                    " It is less than ",
+                    str(minWaterPercentage),
+                    "% of daily water quota of ",
+                    str(dailyWaterQuota),
+                    " pulses",
+                ]
+            )
+            time.sleep(1 * random.random())
             sendEmail(emailText, userConfig, msgFileN, emailSubject)
 
     return 0
@@ -443,24 +489,28 @@ def renameQueueFiles(Q1, Q2, msgFileN):
         if os.path.exists(F1):
             os.rename(F1, F2)
         else:
-            msgList = ['Error:',
-                       '       Error in analog file name.',
-                       '       Queue did not work.',
-                       '       Modify analog saving.',
-                       F1,
-                       '       anFileName:',
-                       F2]
+            msgList = [
+                "Error:",
+                "       Error in analog file name.",
+                "       Queue did not work.",
+                "       Modify analog saving.",
+                F1,
+                "       anFileName:",
+                F2,
+            ]
             writeLogFile(msgFileN, msgList)
 
 
-def elapsedTime(D, T, option='S'):
+def elapsedTime(D, T, option="S"):
     """
     Function to return elapsed time from a datetime object
     """
 
-    cases = {'S': (T-D).seconds % 60,
-             'M': ((T-D).seconds % 3600) // 60,
-             'H': (T-D).days * 24 + (T-D).seconds // 3600}
+    cases = {
+        "S": (T - D).seconds % 60,
+        "M": ((T - D).seconds % 3600) // 60,
+        "H": (T - D).days * 24 + (T - D).seconds // 3600,
+    }
 
     return cases[option]
 
@@ -470,14 +520,14 @@ def changeOutputFileN(D, FN, Dic):
     Function to change the output file name.
     """
 
-    if Dic['Output_Name_Freq'].lower() != 'false':
+    if Dic["Output_Name_Freq"].lower() != "false":
 
-        H = int((Dic['Output_Name_Freq'].lower()).replace('hr', ''))
+        H = int((Dic["Output_Name_Freq"].lower()).replace("hr", ""))
 
         T = datetime.datetime.now()
 
-        if elapsedTime(D, T, 'H') >= H:
-            FN = ''.join([Dic['Subject_Name'], '-', getTimeFormat(), '.dat'])
+        if elapsedTime(D, T, "H") >= H:
+            FN = "".join([Dic["Subject_Name"], "-", getTimeFormat(), ".dat"])
             D = T
 
     return [D, FN]
@@ -489,12 +539,12 @@ def setupGPIO(userConfig):
     """
 
     # Keep Teensy Reset & Program pins HIGH
-    if 'GPIO_Pin_Type' in userConfig:
-        print('   ... Writing GPIO.HIGH to Teensy reset and program pins')
-        teensyProgPin = int(userConfig['Program_Pin'])
-        if userConfig['GPIO_Pin_Type'].lower() == 'bcm':
+    if "GPIO_Pin_Type" in userConfig:
+        print("   ... Writing GPIO.HIGH to Teensy reset and program pins")
+        teensyProgPin = int(userConfig["Program_Pin"])
+        if userConfig["GPIO_Pin_Type"].lower() == "bcm":
             GPIO.setmode(GPIO.BCM)
-        elif userConfig['GPIO_Pin_Type'].lower() == 'board':
+        elif userConfig["GPIO_Pin_Type"].lower() == "board":
             GPIO.setmode(GPIO.BOARD)
         GPIO.setup(teensyProgPin, GPIO.OUT)
         GPIO.output(teensyProgPin, GPIO.HIGH)
@@ -505,47 +555,51 @@ def includeSMHeader(srcF, destF):
     Function to include state machine header files.
     """
 
-    with open(srcF, 'r') as f:
+    with open(srcF, "r") as f:
         dat = f.readlines()
-    d = ''.join(dat)
-    smList = re.findall(r'SM{1}\((\w+)\)', d)
+    d = "".join(dat)
+    smList = re.findall(r"SM{1}\((\w+)\)", d)
 
-    dat = ['/*\n',
-           '  Include the header file for all state machines.\n',
-           '*/\n',
-           '\n',
-           '#ifndef _AllStateMachineHeaders_h\n',
-           '#define _AllStateMachineHeaders_h\n',
-           '\n',
-           '//-->[0]\n',
-           '//<--[0]\n',
-           '\n',
-           '#endif\n']
+    dat = [
+        "/*\n",
+        "  Include the header file for all state machines.\n",
+        "*/\n",
+        "\n",
+        "#ifndef _AllStateMachineHeaders_h\n",
+        "#define _AllStateMachineHeaders_h\n",
+        "\n",
+        "//-->[0]\n",
+        "//<--[0]\n",
+        "\n",
+        "#endif\n",
+    ]
 
-    with open(destF, 'w') as f:
+    with open(destF, "w") as f:
         for i, L in enumerate(dat):
-            if '//-->[0]' in L:
+            if "//-->[0]" in L:
                 for sm in smList:
-                    L = ''.join([L, '#include "StateMachines/', sm, 'Machine.h"\n'])
+                    L = "".join([L, '#include "StateMachines/', sm, 'Machine.h"\n'])
                 dat[i] = L
-                f.write(''.join(dat))
+                f.write("".join(dat))
                 break
 
     # Check 'SpecificFunctions.h' in StateMachines folder
-    if not os.path.exists('StateMachines/SpecificFunctions.h'):
-        dat = ['/*\n',
-               '  This file defines specific functions shared between state machines.\n',
-               '*/\n',
-               '\n',
-               '#ifndef _SpecificFunctions_h\n',
-               '#define _SpecificFunctions_h\n',
-               '\n',
-               '\n',
-               '\n',
-               '#endif\n']
+    if not os.path.exists("StateMachines/SpecificFunctions.h"):
+        dat = [
+            "/*\n",
+            "  This file defines specific functions shared between state machines.\n",
+            "*/\n",
+            "\n",
+            "#ifndef _SpecificFunctions_h\n",
+            "#define _SpecificFunctions_h\n",
+            "\n",
+            "\n",
+            "\n",
+            "#endif\n",
+        ]
 
-        with open('StateMachines/SpecificFunctions.h', 'w') as f:
-            f.write(''.join(dat))
+        with open("StateMachines/SpecificFunctions.h", "w") as f:
+            f.write("".join(dat))
 
 
 def printText(L1, L2, L3, L4, S1, S2, S3, S4, fontSpec, drwSpec):
@@ -566,29 +620,42 @@ def changeDesktopBackground(userConfig):
 
     deskW = 1920
     deskH = 1080
-    imgTemplate = Image.new('RGB', (deskW, deskH), color=(64, 48, 83))
+    imgTemplate = Image.new("RGB", (deskW, deskH), color=(64, 48, 83))
 
-    fontSpec = ImageFont.truetype('/usr/share/fonts/truetype/freefont/FreeSans.ttf', 25)
+    fontSpec = ImageFont.truetype("/usr/share/fonts/truetype/freefont/FreeSans.ttf", 25)
     drwSpec = ImageDraw.Draw(imgTemplate)
 
     # Text to be written
-    S1 = ''.join(['User: ', userConfig['Name']])
-    S2 = ''.join(['IP: ', userConfig['RPi_IP']])
-    S3 = ''.join(['Box: ', userConfig['Box_Name']])
-    S4 = ''.join(['Subject: ', userConfig['Subject_Name']])
+    S1 = "".join(["User: ", userConfig["Name"]])
+    S2 = "".join(["IP: ", userConfig["RPi_IP"]])
+    S3 = "".join(["Box: ", userConfig["Box_Name"]])
+    S4 = "".join(["Subject: ", userConfig["Subject_Name"]])
 
     # Add text to image
     for i in range(4):
         for j in range(5):
-            x = 200 + i*475
-            y = 70 + j*200
-            printText((x, y), (x, y+30), (x, y+60), (x, y+90), S1, S2, S3, S4, fontSpec, drwSpec)
+            x = 200 + i * 475
+            y = 70 + j * 200
+            printText(
+                (x, y),
+                (x, y + 30),
+                (x, y + 60),
+                (x, y + 90),
+                S1,
+                S2,
+                S3,
+                S4,
+                fontSpec,
+                drwSpec,
+            )
 
     # Save image to Desktop
-    imgTemplate.save('/home/pi/backImage.jpg')
-    subprocess.call(["pcmanfm", '--set-wallpaper=/home/pi/backImage.jpg'],
-                    env=dict(os.environ, DISPLAY=":0.0", XAUTHORITY="/home/pi/.Xauthority"))
-    print('   ... Desktop background changed.')
+    imgTemplate.save("/home/pi/backImage.jpg")
+    subprocess.call(
+        ["pcmanfm", "--set-wallpaper=/home/pi/backImage.jpg"],
+        env=dict(os.environ, DISPLAY=":0.0", XAUTHORITY="/home/pi/.Xauthority"),
+    )
+    print("   ... Desktop background changed.")
 
 
 def printSerialOutput(ser, anSer, userConfig, analogEnabled, expStartTime):
@@ -610,32 +677,42 @@ def printSerialOutput(ser, anSer, userConfig, analogEnabled, expStartTime):
     try:
 
         # Write SubmitComplete to log.out fileExt
-        logFile = open('log.out', 'a')
-        logFile.write('   ... SubmitComplete\n')
+        logFile = open("log.out", "a")
+        logFile.write("   ... SubmitComplete\n")
         logFile.close()
 
         # Open output file and message log file initially
-        outputFileN = ''.join([userConfig['Subject_Name'], '-', getTimeFormat(), '.dat'])
-        msgFileN = ''.join([userConfig['Subject_Name'], '-', getTimeFormat(), '.log'])
-        createInitialFile(outputFileN, 'a')
-        createInitialFile(msgFileN, 'a')
+        outputFileN = "".join(
+            [userConfig["Subject_Name"], "-", getTimeFormat(), ".dat"]
+        )
+        msgFileN = "".join([userConfig["Subject_Name"], "-", getTimeFormat(), ".log"])
+        # Parallel trial summary file (.trial.csv) to hold extended trial summary lines (eventCode >=200)
+        trialSummaryFileN = outputFileN.replace(".dat", ".trial.csv")
+        createInitialFile(outputFileN, "a")
+        createInitialFile(msgFileN, "a")
+        # Initialize trial summary file with header if empty
+        if os.path.getsize(trialSummaryFileN) == 0:
+            with open(trialSummaryFileN, "a") as tsf_init:
+                tsf_init.write(
+                    "eventCode,port1Prob,port2Prob,chosenPort,rewarded,trialId,blockId,unstructuredProb,sessionStartEpochMs,blockStartRelMs,trialStartRelMs,trialEndRelMs\n"
+                )
 
         # Log the current date
         currentDate = datetime.datetime.now()
 
-        totalDataRead = ''
+        totalDataRead = ""
 
         if analogEnabled:
-            totalAnalogRead = ''
-            if not os.path.exists(''.join(['Analog-', userConfig['Subject_Name']])):
-                os.makedirs(''.join(['Analog-', userConfig['Subject_Name']]))
-            anBufferSize = int(userConfig['Before_Buffer'])
+            totalAnalogRead = ""
+            if not os.path.exists("".join(["Analog-", userConfig["Subject_Name"]])):
+                os.makedirs("".join(["Analog-", userConfig["Subject_Name"]]))
+            anBufferSize = int(userConfig["Before_Buffer"])
             anBuffer = collections.deque(maxlen=anBufferSize)
             anInitialWriteStatus = False
             anWriteStatus = False
-            anTempFileName = ''
-            anFileName = ''
-            anFileNamePins = ''
+            anTempFileName = ""
+            anFileName = ""
+            anFileNamePins = ""
             anFileNameBuffer = collections.deque(maxlen=10)
             anTempFileNameBuffer = collections.deque(maxlen=10)
 
@@ -644,11 +721,13 @@ def printSerialOutput(ser, anSer, userConfig, analogEnabled, expStartTime):
 
         # Serial time out check
         lastTimeSerialCheck = int(time.time())
-        serialTimeOutCheck = int(userConfig['Serial_TimeOut'])
+        serialTimeOutCheck = int(userConfig["Serial_TimeOut"])
 
         # Teensy time sync
         lastTimeSync = int(time.time())
-        teensyTimeSyncFreq = int(float((userConfig['TimeSyncFreq'].lower()).replace('hr', '')) * 3600)
+        teensyTimeSyncFreq = int(
+            float((userConfig["TimeSyncFreq"].lower()).replace("hr", "")) * 3600
+        )
 
         while True:
 
@@ -661,34 +740,35 @@ def printSerialOutput(ser, anSer, userConfig, analogEnabled, expStartTime):
                 dataRead = ser.read(dataToRead)
 
             except KeyboardInterrupt:
-                raise Exception('Teensy Serial Port User Interrupt Error')
+                raise Exception("Teensy Serial Port User Interrupt Error")
             except Exception as e:
                 # Send an email if serial is not available
-                sendEmail('The serial port is not open.', userConfig, msgFileN)
-                raise Exception('Teensy Serial Port Not Available Error')
+                sendEmail("The serial port is not open.", userConfig, msgFileN)
+                raise Exception("Teensy Serial Port Not Available Error")
 
             # Join data until all lines end in \n
-            totalDataRead = ''.join([totalDataRead, dataRead])
+            totalDataRead = "".join([totalDataRead, dataRead])
 
             # True indicates all lines ends in \n
             completeLine = True
 
             # Check if all lines end in \n
             for line in totalDataRead.splitlines(True):
-                if '\n' not in line:
+                if "\n" not in line:
                     completeLine = False
                     break
 
             # Open output file to append text
-            f = open(outputFileN, 'a')
+            f = open(outputFileN, "a")
+            tsf = open(trialSummaryFileN, "a")  # open trial summary file for this cycle
 
             if len(totalDataRead) == 0:
-                if (int(time.time())-lastTimeSerialCheck) > serialTimeOutCheck:
-                    msgList = ['Error:', 'Teensy serial port is idle']
+                if (int(time.time()) - lastTimeSerialCheck) > serialTimeOutCheck:
+                    msgList = ["Error:", "Teensy serial port is idle"]
                     writeLogFile(msgFileN, msgList)
 
                     # Send an email if serial is not available
-                    sendEmail('Teensy serial port is idle.', userConfig, msgFileN)
+                    sendEmail("Teensy serial port is idle.", userConfig, msgFileN)
 
                     lastTimeSerialCheck = int(time.time())
                     # raise Exception('Teensy Serial Port IDLE Error')
@@ -698,65 +778,95 @@ def printSerialOutput(ser, anSer, userConfig, analogEnabled, expStartTime):
             # If all lines end in \n, then write to output file or analog file
             if completeLine and len(totalDataRead) > 1:
                 for eachLine in totalDataRead.splitlines(True):
-                    words = eachLine.split(',')
+                    words = eachLine.split(",")
 
                     # This tag indicates (I)nformation from Teensy
-                    if words[0] == 'I':
-                        msgList = ['Info:', eachLine[2:]]
+                    if words[0] == "I":
+                        msgList = ["Info:", eachLine[2:]]
                         writeLogFile(msgFileN, msgList)
 
                     # This tag indicates (E)rror from Teensy
-                    elif words[0] == 'E':
-                        msgList = ['Error:', eachLine[2:]]
+                    elif words[0] == "E":
+                        msgList = ["Error:", eachLine[2:]]
                         writeLogFile(msgFileN, msgList)
 
                     # This tag indicates daily water report from Teensy
-                    elif words[0] == 'D':
+                    elif words[0] == "D":
                         dailyWater = int(words[1])
 
                     # This tag indicates pin numbers in analog reading
-                    elif words[0] == 'P':
+                    elif words[0] == "P":
                         if analogEnabled:
-                            anFileNamePins = '.' + '.'.join([words[i] for i in range(1, len(words))]).rstrip()
+                            anFileNamePins = (
+                                "."
+                                + ".".join(
+                                    [words[i] for i in range(1, len(words))]
+                                ).rstrip()
+                            )
 
                     # Otherwise, it is a regular output, just append to output
                     else:
+                        # Detect trial summary lines (event codes >=200) independent of field count
+                        isNumeric = words[0].isdigit()
+                        if isNumeric and int(words[0]) >= 200:
+                            # Write full line to separate trial summary file (already newline terminated)
+                            tsf.write(eachLine)
+                            continue
+
+                        # Legacy regular output lines must have exactly 8 fields
                         if len(words) != 8:
-                            msgList = ['Error:',
-                                       '       Error in reading serial.',
-                                       '       Modify serial read.',
-                                       eachLine]
+                            msgList = [
+                                "Error:",
+                                "       Error in reading serial (unexpected field count).",
+                                "       Modify serial read or update parser.",
+                                eachLine,
+                            ]
                             writeLogFile(msgFileN, msgList)
                         else:
                             if analogEnabled:
                                 # This tag indicates start of analog saving
-                                if words[0] == '99':
-                                        if anFileNamePins:
-                                            analogDirPath = getAnalogDirPath(userConfig)
-                                            anFileName = analogDirPath + '/an.' + '.'.join([words[i] for i in reversed(range(4, 6))]).rstrip()
-                                            anFileName = ''.join([anFileName, anFileNamePins])
-                                        else:
-                                            msgList = ['Error:',
-                                                       '       Error in analog file name.',
-                                                       '       Analog pin file names missing.',
-                                                       '       Modify analog saving.']
-                                            writeLogFile(msgFileN, msgList)
+                                if words[0] == "99":
+                                    if anFileNamePins:
+                                        analogDirPath = getAnalogDirPath(userConfig)
+                                        anFileName = (
+                                            analogDirPath
+                                            + "/an."
+                                            + ".".join(
+                                                [
+                                                    words[i]
+                                                    for i in reversed(range(4, 6))
+                                                ]
+                                            ).rstrip()
+                                        )
+                                        anFileName = "".join(
+                                            [anFileName, anFileNamePins]
+                                        )
+                                    else:
+                                        msgList = [
+                                            "Error:",
+                                            "       Error in analog file name.",
+                                            "       Analog pin file names missing.",
+                                            "       Modify analog saving.",
+                                        ]
+                                        writeLogFile(msgFileN, msgList)
 
                                 # This tag indicates end of analog saving
-                                if words[0] == '98':
+                                if words[0] == "98":
                                     if anFileName:
                                         anFileNameBuffer.append(anFileName)
                                     else:
-                                        msgList = ['Error:',
-                                                   '       Error in analog file name.',
-                                                   '       Real analog file name missing.',
-                                                   '       Modify analog saving.']
+                                        msgList = [
+                                            "Error:",
+                                            "       Error in analog file name.",
+                                            "       Real analog file name missing.",
+                                            "       Modify analog saving.",
+                                        ]
                                         writeLogFile(msgFileN, msgList)
 
                             f.write(eachLine)
 
                 # Reset accumulated string
-                totalDataRead = ''
+                totalDataRead = ""
 
             if analogEnabled:
                 # Check available data in analog USB serial and read them
@@ -764,31 +874,33 @@ def printSerialOutput(ser, anSer, userConfig, analogEnabled, expStartTime):
                     anDataToRead = anSer.inWaiting()
                     anDataRead = anSer.read(anDataToRead)
                 except KeyboardInterrupt:
-                    raise Exception('Analog USB Port User Interrupt Error')
+                    raise Exception("Analog USB Port User Interrupt Error")
                 except Exception as e:
                     # Send an email if serial is not available
-                    sendEmail('The analog USB port is not open.', userConfig, msgFileN)
-                    raise Exception('Analog USB Port Not Available Error')
+                    sendEmail("The analog USB port is not open.", userConfig, msgFileN)
+                    raise Exception("Analog USB Port Not Available Error")
 
-                totalAnalogRead = ''.join([totalAnalogRead, anDataRead])
+                totalAnalogRead = "".join([totalAnalogRead, anDataRead])
 
                 if len(totalAnalogRead) > 1:
                     for eachLine in totalAnalogRead.splitlines(True):
-                        
-                        if '\n' not in eachLine:
-                            continue 
 
-                        words = eachLine.split(',')
+                        if "\n" not in eachLine:
+                            continue
+
+                        words = eachLine.split(",")
                         # This tag indicates start of analog file saving
-                        if words[0] == 'V':
+                        if words[0] == "V":
                             anTempFileName = getAnalogTempFileName(userConfig)
-                            anFile = open(anTempFileName, 'a')
+                            anFile = open(anTempFileName, "a")
                             anInitialWriteStatus = True
 
                         # This tag indicates each analog read for all channels
-                        elif words[0] == 'A':
-                            
-                            anLineToWrite = ','.join([words[i] for i in range(1, len(words))])
+                        elif words[0] == "A":
+
+                            anLineToWrite = ",".join(
+                                [words[i] for i in range(1, len(words))]
+                            )
 
                             # Sending single value
                             if anWriteStatus:
@@ -796,7 +908,7 @@ def printSerialOutput(ser, anSer, userConfig, analogEnabled, expStartTime):
                                     anFile.write(anLineToWrite)
 
                             anBuffer.append(anLineToWrite)
-                    
+
                             # Sending initial analog buffer
                             if anInitialWriteStatus:
                                 anBufferTemp = copy.deepcopy(anBuffer)
@@ -807,43 +919,46 @@ def printSerialOutput(ser, anSer, userConfig, analogEnabled, expStartTime):
                                 anWriteStatus = True
 
                         # This tag indicates end of analog file saving
-                        elif words[0] == 'W':
+                        elif words[0] == "W":
                             anWriteStatus = False
                             anInitialWriteStatus = False
                             if os.path.exists(anTempFileName):
                                 anFile.close()
                                 anTempFileNameBuffer.append(anTempFileName)
                             else:
-                                msgList = ['Error:',
-                                           '       Error in analog file name.',
-                                           '       Temporary analog file missig.',
-                                           '       Modify analog saving.']
+                                msgList = [
+                                    "Error:",
+                                    "       Error in analog file name.",
+                                    "       Temporary analog file missig.",
+                                    "       Modify analog saving.",
+                                ]
                                 writeLogFile(msgFileN, msgList)
-                       
+
                         # This tag indicates (I)nformation from Teensy
-                        elif words[0] == 'I':
-                            msgList = ['Info:', eachLine[2:]]
+                        elif words[0] == "I":
+                            msgList = ["Info:", eachLine[2:]]
                             writeLogFile(msgFileN, msgList)
 
                         # This tag indicates (E)rror from Teensy
-                        elif words[0] == 'E':
-                            msgList = ['Error:', eachLine[2:]]
+                        elif words[0] == "E":
+                            msgList = ["Error:", eachLine[2:]]
                             writeLogFile(msgFileN, msgList)
 
                         # Otherwise, there is an error, report it
-                      #  else:
-                       #     msgList = ['Error:',
-                        #               '       Error in reading analog.',
-                         #              '       Check analog output.',
-                          #             '       Modify serial read.',
-                           #            eachLine]
-                          #  writeLogFile(msgFileN, msgList)
+                    #  else:
+                    #     msgList = ['Error:',
+                    #               '       Error in reading analog.',
+                    #              '       Check analog output.',
+                    #             '       Modify serial read.',
+                    #            eachLine]
+                    #  writeLogFile(msgFileN, msgList)
 
                     # Reset accumulated string
-                    totalAnalogRead = ''
+                    totalAnalogRead = ""
 
             # close the file until next read [for tail -f output]
             f.close()
+            tsf.close()
 
             # Change temporary analog file names
             if analogEnabled:
@@ -853,35 +968,48 @@ def printSerialOutput(ser, anSer, userConfig, analogEnabled, expStartTime):
             dailyWater = checkDailyWater(dailyWater, userConfig, msgFileN)
 
             # Check Teensy time synced
-            if ((int(time.time())-lastTimeSync) > teensyTimeSyncFreq):
+            if (int(time.time()) - lastTimeSync) > teensyTimeSyncFreq:
                 syncTimeNTP(ser, userConfig, msgFileN)
                 lastTimeSync = int(time.time())
 
             # Check output [result] file name and changed it daily
-            if 'Output_Name_Freq' in userConfig:
-                [currentDate, outputFileN] = changeOutputFileN(currentDate, outputFileN, userConfig)
+            if "Output_Name_Freq" in userConfig:
+                [currentDate, outputFileN] = changeOutputFileN(
+                    currentDate, outputFileN, userConfig
+                )
+                # Rotate trial summary file alongside main .dat file
+                trialSummaryFileN = outputFileN.replace(".dat", ".trial.csv")
+                if (
+                    not os.path.exists(trialSummaryFileN)
+                    or os.path.getsize(trialSummaryFileN) == 0
+                ):
+                    createInitialFile(trialSummaryFileN, "a")
+                    with open(trialSummaryFileN, "a") as tsf_init:
+                        tsf_init.write(
+                            "eventCode,port1Prob,port2Prob,chosenPort,rewarded,trialId,blockId,unstructuredProb,sessionStartEpochMs,blockStartRelMs,trialStartRelMs,trialEndRelMs\n"
+                        )
 
             # Check exit signal
             if exitInst.exitStatus:
-                raise Exception('An exit signal received by OS.')
+                raise Exception("An exit signal received by OS.")
 
     except KeyboardInterrupt:
-        print('   ... Program ended: User interrupted the program.')
+        print("   ... Program ended: User interrupted the program.")
         f.close()
 
     except Exception as e:
-        print('   ... Program ended: Error occurred.')
-        print('   ... Error : %s: %s \n' % (e.__class__, e))
+        print("   ... Program ended: Error occurred.")
+        print("   ... Error : %s: %s \n" % (e.__class__, e))
         f.close()
 
     finally:
-        print('   ... The current time: ' + getTimeFormat())
-        msgList = ['Program ended with exit signal = ' + str(exitInst.exitStatus)]
+        print("   ... The current time: " + getTimeFormat())
+        msgList = ["Program ended with exit signal = " + str(exitInst.exitStatus)]
         writeLogFile(msgFileN, msgList)
 
 
 def getEverything(ser, duration):
-    everything =  []
+    everything = []
     startTime = time.time()
 
     while True:
@@ -911,25 +1039,38 @@ def liveMonitor(ser):
 def addCrontab(userConfig):
     minute = userConfig["Daily_Time"].split(":")[1]
     hour = userConfig["Daily_Time"].split(":")[0]
-    cmd = "script=\"convertAndTransfer.py\" ; cwd=\"$PWD/\" ; echo \"%s %s * * * cd $cwd ; sudo python3 $cwd/$script\" | crontab -" % (minute, hour)
+    cmd = (
+        'script="convertAndTransfer.py" ; cwd="$PWD/" ; echo "%s %s * * * cd $cwd ; sudo python3 $cwd/$script" | crontab -'
+        % (minute, hour)
+    )
 
     try:
-        subClient = subprocess.Popen(cmd, shell=True, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+        subClient = subprocess.Popen(
+            cmd, shell=True, stderr=subprocess.PIPE, stdout=subprocess.PIPE
+        )
         subOut, subErr = subClient.communicate()
 
     except Exception as e:
-        print("failed to add convertAndTransfer icrontab:\n%s\n%s\n%s" % (subOut, subErr, e))
+        print(
+            "failed to add convertAndTransfer icrontab:\n%s\n%s\n%s"
+            % (subOut, subErr, e)
+        )
 
 
 def removeCrontab():
     cmd = "crontab -r"
 
     try:
-        subClient = subprocess.Popen(cmd, shell=True, stderr = subprocess.PIPE, stdout=subprocess.PIPE)
+        subClient = subprocess.Popen(
+            cmd, shell=True, stderr=subprocess.PIPE, stdout=subprocess.PIPE
+        )
         subOut, subErr = subClient.communicate()
 
     except Exception as e:
-        print("failed to remove convertAndTransfer crontab:\n%s\n%s\n%s" % (subOut, subErr, e))
+        print(
+            "failed to remove convertAndTransfer crontab:\n%s\n%s\n%s"
+            % (subOut, subErr, e)
+        )
 
 
 def main():
@@ -938,10 +1079,10 @@ def main():
     """
 
     # Include state machine header files
-    includeSMHeader('SetStateMachineTP.h', 'StateMachineHeaders.h')
+    includeSMHeader("SetStateMachineTP.h", "StateMachineHeaders.h")
 
     # Read user configuration
-    userConfig = getUserConfig('userInfo.in', '=')
+    userConfig = getUserConfig("userInfo.in", "=")
 
     # Sync RPi system time
     syncRPiTime(userConfig)
@@ -954,16 +1095,16 @@ def main():
 
     # Check analog serial status [True: Enabled, False: Disabled]
     analogEnabled = False
-    if userConfig['Analog'].lower() == 'true':
+    if userConfig["Analog"].lower() == "true":
         analogEnabled = True
 
     # Open Teensy main serial port
-    ser = getSerialConnection('/dev/ttyACM0', '/dev/ttyACM1', 1000000)
+    ser = getSerialConnection("/dev/ttyACM0", "/dev/ttyACM1", 1000000)
 
     # Open analog serial port [if enabled]
     anSer = False
     if analogEnabled:
-        anSer = getSerialConnection('/dev/serial0', '/dev/serial1', 1000000)
+        anSer = getSerialConnection("/dev/serial0", "/dev/serial1", 1000000)
 
     # Setup GPIO and write HIGH to Teensy program pin
     setupGPIO(userConfig)
@@ -992,4 +1133,4 @@ if __name__ == "__main__":
     global exitInst
     exitInst = safeExit()
     main()
-    print('   ... Program ended successfully.')
+    print("   ... Program ended successfully.")
