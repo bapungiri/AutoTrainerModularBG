@@ -19,6 +19,7 @@ Remote_File_Exts    = *.dat, *.log
 Get_Analog_Results  = False		# True if you want analog input
 Delete_Old_Results  = False
 Output_Name_Freq    = 24HR
+Output_Dir          = /home/pi/ExpData            # Optional: where to write .dat/.log/.trial.csv (blank or 'default' = current dir). Examples: /home/pi/Data or 
 
 # ---- Automated File Transfer Settings, transfers all files with exts "File_Exts"
 # ---- Finds files recursively in "Look_In_Paths", ignores files/dirs with names starting with an under_score (for ex: "_CtLogs")

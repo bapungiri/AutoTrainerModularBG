@@ -68,6 +68,34 @@ def writeLogFile(fileName, msgList):
     msgFile.close()
 
 
+def getOutputDir(userConfig):
+    """
+    Resolve the base directory where .dat/.log/.trial.csv files are written.
+    Config key: Output_Dir (defaults to current directory if missing or empty).
+    Supports ~ expansion and environment variables.
+    Ensures the directory exists.
+    """
+    try:
+        raw = userConfig.get("Output_Dir", "").strip()
+    except Exception:
+        raw = ""
+    if not raw or raw.lower() == "default":
+        out_dir = "."
+    else:
+        out_dir = os.path.expandvars(os.path.expanduser(raw))
+    # Create if needed
+    try:
+        os.makedirs(out_dir, exist_ok=True)
+    except Exception:
+        # Fallback to current dir on failure
+        out_dir = "."
+        try:
+            os.makedirs(out_dir, exist_ok=True)
+        except Exception:
+            pass
+    return out_dir
+
+
 def syncRPiTime(userConfig):
     """
     Function to sync system time with NTP.
@@ -116,6 +144,13 @@ def createInitialFile(fileName, fileStatus):
     """
     Function to create an initial file.
     """
+    # Ensure parent directory exists
+    try:
+        parent = os.path.dirname(fileName)
+        if parent and not os.path.exists(parent):
+            os.makedirs(parent, exist_ok=True)
+    except Exception:
+        pass
     f = open(fileName, fileStatus)
     f.close()
 
@@ -520,16 +555,20 @@ def elapsedTime(D, T, option="S"):
 def changeOutputFileN(D, FN, Dic):
     """
     Function to change the output file name.
+    Preserves the directory of the current file name (FN) and rotates only the base name.
     """
 
-    if Dic["Output_Name_Freq"].lower() != "false":
+    freq = Dic.get("Output_Name_Freq", "false").lower()
+    if freq != "false":
 
-        H = int((Dic["Output_Name_Freq"].lower()).replace("hr", ""))
+        H = int(freq.replace("hr", ""))
 
         T = datetime.datetime.now()
 
         if elapsedTime(D, T, "H") >= H:
-            FN = "".join([Dic["Subject_Name"], "-", getTimeFormat(), ".dat"])
+            dirName = os.path.dirname(FN)
+            baseName = "".join([Dic["Subject_Name"], "-", getTimeFormat(), ".dat"])
+            FN = os.path.join(dirName if dirName else ".", baseName)
             D = T
 
     return [D, FN]
@@ -684,10 +723,10 @@ def printSerialOutput(ser, anSer, userConfig, analogEnabled, expStartTime):
         logFile.close()
 
         # Open output file and message log file initially
-        outputFileN = "".join(
-            [userConfig["Subject_Name"], "-", getTimeFormat(), ".dat"]
-        )
-        msgFileN = "".join([userConfig["Subject_Name"], "-", getTimeFormat(), ".log"])
+        out_dir = getOutputDir(userConfig)
+        base = "".join([userConfig["Subject_Name"], "-", getTimeFormat()])
+        outputFileN = os.path.join(out_dir, base + ".dat")
+        msgFileN = os.path.join(out_dir, base + ".log")
         # Parallel trial summary file (.trial.csv) to hold extended trial summary lines (eventCode >=200)
         trialSummaryFileN = outputFileN.replace(".dat", ".trial.csv")
         createInitialFile(outputFileN, "a")
@@ -1049,12 +1088,24 @@ def printSerialOutput(ser, anSer, userConfig, analogEnabled, expStartTime):
 
     except KeyboardInterrupt:
         print("   ... Program ended: User interrupted the program.")
-        f.close()
+        try:
+            if "f" in locals() and hasattr(f, "close"):
+                f.close()
+            if "tsf" in locals() and hasattr(tsf, "close"):
+                tsf.close()
+        except Exception:
+            pass
 
     except Exception as e:
         print("   ... Program ended: Error occurred.")
         print("   ... Error : %s: %s \n" % (e.__class__, e))
-        f.close()
+        try:
+            if "f" in locals() and hasattr(f, "close"):
+                f.close()
+            if "tsf" in locals() and hasattr(tsf, "close"):
+                tsf.close()
+        except Exception:
+            pass
 
     finally:
         # Session-end flush / integrity marker (with checksums & counts)

@@ -78,8 +78,6 @@ inline void NosepokeImpureMachineCore(NosepokeImpureStruct &st)
     int unstrProb = 80;
     // -----------------
 
-    Serial.print("I'm here");
-
     st.unstructuredProb = unstrProb; // store for logging
     RunStartANDEndStateMachine(&startStateMachine);
     InitializeStateMachine();
