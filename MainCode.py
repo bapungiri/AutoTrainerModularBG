@@ -163,10 +163,20 @@ def getUserConfig(fileName, splitterChar):
     userConfig = {}
     with open(fileName) as configFile:
         for eachLine in configFile:
-            if "=" in eachLine:
-                (settingName, settingValue) = eachLine.split(splitterChar)
+            # Remove inline comments (anything after a '#') and trim whitespace
+            line = eachLine.split("#", 1)[0].strip()
+            # Skip blank or comment-only lines
+            if not line:
+                continue
+            if splitterChar in line:
+                (settingName, settingValue) = line.split(splitterChar, 1)
                 settingName = settingName.strip()
                 settingValue = settingValue.strip()
+                # Optionally strip wrapping quotes from values
+                if (settingValue.startswith('"') and settingValue.endswith('"')) or (
+                    settingValue.startswith("'") and settingValue.endswith("'")
+                ):
+                    settingValue = settingValue[1:-1]
                 userConfig[settingName] = settingValue
     return userConfig
 
