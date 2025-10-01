@@ -1,5 +1,7 @@
 #! /usr/bin/python3
 
+from __future__ import print_function
+
 import datetime
 import logging
 import os
@@ -338,7 +340,7 @@ def routeRawDataPaths(mountpoint, userConfig):
         try:
             os.makedirs(p, exist_ok=True)
         except Exception as e:
-            logPrint(f"routeRawDataPaths: mkdir fail {p}: {e}")
+            logPrint("routeRawDataPaths: mkdir fail {0}: {1}".format(p, e))
     return raw_base, videos_dir
 
 
@@ -359,36 +361,32 @@ def transferRawMode(
         ext = os.path.splitext(file)[1][1:].lower()
         if skipLatest and ext in latest and file == latest[ext]:
             continue
-        # Convert .h264 -> .mp4
         if ext == "h264":
             try:
                 file = convertVideo(file, fps)
                 ext = "mp4"
             except Exception as e:
-                logPrint(f"convert fail {file}: {e}")
+                logPrint("convert fail {0}: {1}".format(file, e))
                 continue
-        # Decide destination
         if ext in ("mp4", "events", "frames"):
             dest_dir = videos_dir
-            # Keep subfolder for frames/events (optional)
             if ext in ("events", "frames"):
                 sub = os.path.basename(os.path.dirname(file))
-                dest_dir = os.path.join(videos_dir, sub)
+                dest_dir2 = os.path.join(videos_dir, sub)
                 try:
-                    os.makedirs(dest_dir, exist_ok=True)
+                    os.makedirs(dest_dir2, exist_ok=True)
+                    dest_dir = dest_dir2
                 except Exception as e:
-                    logPrint(f"mkdir {dest_dir} fail: {e}")
-                    dest_dir = videos_dir
+                    logPrint("mkdir {0} fail: {1}".format(dest_dir2, e))
         else:
-            # dat, log, csv, etc.
             dest_dir = raw_base
-        cmd = f"sudo rsync {file} {dest_dir}"
+        cmd = "sudo rsync {0} {1}".format(file, dest_dir)
         try:
-            logPrint(f"RAW_MODE: {cmd}")
+            logPrint("RAW_MODE: {0}".format(cmd))
             subprocess.run(cmd, shell=True)
             moved.append(cmd)
         except Exception as e:
-            logPrint(f"rsync fail {file}: {e}")
+            logPrint("rsync fail {0}: {1}".format(file, e))
     return moved
 
 

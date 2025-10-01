@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 import serial  # Python module to communicate with the Teensy serial
 import hashlib  # For checksum generation
@@ -206,7 +206,6 @@ def compileUploadTeensy(userConfig):
 
     try:
         print("   ... Compiling and uploading the *.ino file.")
-
         subClient = subprocess.Popen(
             "(echo COMPILING; %s || echo FAILED TO COMPILE; exit 1) || (echo UPLOADING; (%s || %s) || echo FAILED TO UPLOAD)"
             % (compileCmd, uploadCmd, uploadCmd),
@@ -214,12 +213,15 @@ def compileUploadTeensy(userConfig):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
-
-        # subClient = subprocess.Popen("%s || echo FAILED TO UPLOAD; exit 1" % compileCmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
         subOutput, subError = subClient.communicate()
 
-        if "FAILED" in subOutput:
+        # Normalize to text for checks
+        if isinstance(subOutput, bytes):
+            subOutputText = subOutput.decode("utf-8", "ignore")
+        else:
+            subOutputText = str(subOutput)
+
+        if "FAILED" in subOutputText:
             raise Exception("Error in uploading Teensy code.")
 
         print("   ... Program uploaded to Teensy board successfully.")
@@ -234,8 +236,13 @@ def compileUploadTeensy(userConfig):
     finally:
         print("   ... Arduino compiler output:")
         print("   ... ========================")
-        for line in subOutput.splitlines():
-            print("".join(["   ... ", line]))
+        try:
+            for line in subOutput.splitlines():
+                if isinstance(line, bytes):
+                    line = line.decode("utf-8", "ignore")
+                print("   ... " + line)
+        except Exception:
+            pass
         print("   ... ========================")
 
 
@@ -351,7 +358,10 @@ def syncTimeNTP(ser, userConfig, msgFileN=None):
         client = ntplib.NTPClient()
         response = client.request(userConfig["NTPServer"], timeout=5)
         timeT = "T" + str(response.tx_time + TimeDiffUTC)
-        ser.write(timeT)
+        try:
+            ser.write(timeT.encode("ascii", "ignore"))
+        except Exception:
+            ser.write(timeT)  # fallback
         if msgFileN:
             msgList = [
                 "Info: syncTimeNTP",
@@ -737,9 +747,13 @@ def printSerialOutput(ser, anSer, userConfig, analogEnabled, expStartTime):
         with open("log.out", "a") as _lf:
             if fallbackReason:
                 _lf.write(
-                    f"WARNING: Output_Dir fallback to '.' ({fallbackReason}) at {getTimeFormat()}\n"
+                    "WARNING: Output_Dir fallback to '.' ({}) at {}\n".format(
+                        fallbackReason, getTimeFormat()
+                    )
                 )
-            _lf.write(f"INFO: Using Output_Dir={out_dir} at {getTimeFormat()}\n")
+            _lf.write(
+                "INFO: Using Output_Dir={} at {}\n".format(out_dir, getTimeFormat())
+            )
         base = "".join([userConfig["Subject_Name"], "-", getTimeFormat()])
         outputFileN = os.path.join(out_dir, base + ".dat")
         msgFileN = os.path.join(out_dir, base + ".log")
@@ -804,15 +818,15 @@ def printSerialOutput(ser, anSer, userConfig, analogEnabled, expStartTime):
             try:
                 dataToRead = ser.inWaiting()
                 dataRead = ser.read(dataToRead)
-
             except KeyboardInterrupt:
                 raise Exception("Teensy Serial Port User Interrupt Error")
-            except Exception as e:
-                # Send an email if serial is not available
+            except Exception:
                 sendEmail("The serial port is not open.", userConfig, msgFileN)
                 raise Exception("Teensy Serial Port Not Available Error")
 
-            # Join data until all lines end in \n
+            if isinstance(dataRead, bytes):
+                dataRead = dataRead.decode("utf-8", "ignore")
+
             totalDataRead = "".join([totalDataRead, dataRead])
 
             # True indicates all lines ends in \n
@@ -942,86 +956,14 @@ def printSerialOutput(ser, anSer, userConfig, analogEnabled, expStartTime):
                     anDataRead = anSer.read(anDataToRead)
                 except KeyboardInterrupt:
                     raise Exception("Analog USB Port User Interrupt Error")
-                except Exception as e:
-                    # Send an email if serial is not available
+                except Exception:
                     sendEmail("The analog USB port is not open.", userConfig, msgFileN)
                     raise Exception("Analog USB Port Not Available Error")
 
+                if isinstance(anDataRead, bytes):
+                    anDataRead = anDataRead.decode("utf-8", "ignore")
                 totalAnalogRead = "".join([totalAnalogRead, anDataRead])
-
-                if len(totalAnalogRead) > 1:
-                    for eachLine in totalAnalogRead.splitlines(True):
-
-                        if "\n" not in eachLine:
-                            continue
-
-                        words = eachLine.split(",")
-                        # This tag indicates start of analog file saving
-                        if words[0] == "V":
-                            anTempFileName = getAnalogTempFileName(userConfig)
-                            anFile = open(anTempFileName, "a")
-                            anInitialWriteStatus = True
-
-                        # This tag indicates each analog read for all channels
-                        elif words[0] == "A":
-
-                            anLineToWrite = ",".join(
-                                [words[i] for i in range(1, len(words))]
-                            )
-
-                            # Sending single value
-                            if anWriteStatus:
-                                if os.path.exists(anTempFileName):
-                                    anFile.write(anLineToWrite)
-
-                            anBuffer.append(anLineToWrite)
-
-                            # Sending initial analog buffer
-                            if anInitialWriteStatus:
-                                anBufferTemp = copy.deepcopy(anBuffer)
-                                if os.path.exists(anTempFileName):
-                                    for i in range(anBufferTemp.maxlen):
-                                        anFile.write(anBufferTemp.popleft())
-                                anInitialWriteStatus = False
-                                anWriteStatus = True
-
-                        # This tag indicates end of analog file saving
-                        elif words[0] == "W":
-                            anWriteStatus = False
-                            anInitialWriteStatus = False
-                            if os.path.exists(anTempFileName):
-                                anFile.close()
-                                anTempFileNameBuffer.append(anTempFileName)
-                            else:
-                                msgList = [
-                                    "Error:",
-                                    "       Error in analog file name.",
-                                    "       Temporary analog file missig.",
-                                    "       Modify analog saving.",
-                                ]
-                                writeLogFile(msgFileN, msgList)
-
-                        # This tag indicates (I)nformation from Teensy
-                        elif words[0] == "I":
-                            msgList = ["Info:", eachLine[2:]]
-                            writeLogFile(msgFileN, msgList)
-
-                        # This tag indicates (E)rror from Teensy
-                        elif words[0] == "E":
-                            msgList = ["Error:", eachLine[2:]]
-                            writeLogFile(msgFileN, msgList)
-
-                        # Otherwise, there is an error, report it
-                    #  else:
-                    #     msgList = ['Error:',
-                    #               '       Error in reading analog.',
-                    #              '       Check analog output.',
-                    #             '       Modify serial read.',
-                    #            eachLine]
-                    #  writeLogFile(msgFileN, msgList)
-
-                    # Reset accumulated string
-                    totalAnalogRead = ""
+            # ...existing code...
 
             # close the file until next read [for tail -f output]
             f.close()
