@@ -324,6 +324,51 @@ def verify(cmds):
         logPrint("verify: found %s in %s: %s" % (file, dest, file in files))
 
 
+def routeRawDataPaths(mountpoint):
+    raw_base = os.path.join(mountpoint, "raw_data")
+    videos_dir = os.path.join(raw_base, "videos")
+    try:
+        os.makedirs(videos_dir, exist_ok=True)
+    except Exception as e:
+        logPrint(f"routeRawDataPaths: failed to create raw_data dirs: {e}")
+    return raw_base, videos_dir
+
+
+def transferRawMode(files, mountpoint, latest, fps=None, skipLatest=False):
+    raw_base, videos_dir = routeRawDataPaths(mountpoint)
+    transferred = []
+    for file in files:
+        ext = os.path.splitext(file)[1][1:]
+        if skipLatest and ext in latest and file == latest[ext]:
+            continue
+        # Convert video first
+        if ext == "h264":
+            try:
+                file = convertVideo(file, fps)
+            except:
+                logPrint(f"transferRawMode: skipping failed convert {file}")
+                continue
+            ext = "mp4"
+        # Decide destination
+        if ext in ("mp4", "events", "frames"):
+            dest_dir = videos_dir
+            if ext in ("events", "frames"):
+                # Keep subfolder per parent session if desired
+                sub = os.path.basename(os.path.dirname(file))
+                dest_dir = os.path.join(videos_dir, sub)
+                os.makedirs(dest_dir, exist_ok=True)
+        else:
+            dest_dir = raw_base
+        cmd = f"sudo rsync {file} {dest_dir}"
+        try:
+            logPrint(f"transferRawMode: {cmd}")
+            subprocess.run(cmd, shell=True)
+            transferred.append(cmd)
+        except Exception as e:
+            logPrint(f"transferRawMode: FAILED {cmd}\n{e}")
+    return transferred
+
+
 def main():
     # read config files
     userInfo = getUserConfig("userInfo.in", "=")
@@ -373,10 +418,16 @@ def main():
     skipLatest = userInfo["Skip_Latest"].lower() == "true"
     specificDests = userInfo["Specific_Dests"].lower() == "true"
 
-    if not specificDests:
+    rawMode = userInfo.get("Raw_Data_Mode", "false").lower() == "true"
+
+    if not specificDests and not rawMode:
         dailyDir = makeDirs(exts, mountpoint, specificDests)
         transferred = transfer(
             allFiles, dailyDir, latest, camInfo["Camera_FPS"], skipLatest
+        )
+    elif rawMode:
+        transferred = transferRawMode(
+            allFiles, mountpoint, latest, camInfo["Camera_FPS"], skipLatest
         )
     else:
         dest = mountpoint

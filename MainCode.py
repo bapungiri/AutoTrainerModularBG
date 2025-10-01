@@ -71,9 +71,6 @@ def writeLogFile(fileName, msgList):
 def getOutputDir(userConfig):
     """
     Resolve the base directory where .dat/.log/.trial.csv files are written.
-    Config key: Output_Dir (defaults to current directory if missing or empty).
-    Supports ~ expansion and environment variables.
-    Ensures the directory exists.
     """
     try:
         raw = userConfig.get("Output_Dir", "").strip()
@@ -81,13 +78,14 @@ def getOutputDir(userConfig):
         raw = ""
     if not raw or raw.lower() == "default":
         out_dir = "."
+        userConfig["_Output_Dir_Fallback"] = "missing_or_default"
     else:
         out_dir = os.path.expandvars(os.path.expanduser(raw))
-    # Create if needed
     try:
         os.makedirs(out_dir, exist_ok=True)
-    except Exception:
-        # Fallback to current dir on failure
+    except Exception as e:
+        # Record fallback reason
+        userConfig["_Output_Dir_Fallback"] = "create_failed:" + str(e)
         out_dir = "."
         try:
             os.makedirs(out_dir, exist_ok=True)
@@ -734,6 +732,14 @@ def printSerialOutput(ser, anSer, userConfig, analogEnabled, expStartTime):
 
         # Open output file and message log file initially
         out_dir = getOutputDir(userConfig)
+        # Log resolved output directory & any fallback
+        fallbackReason = userConfig.get("_Output_Dir_Fallback")
+        with open("log.out", "a") as _lf:
+            if fallbackReason:
+                _lf.write(
+                    f"WARNING: Output_Dir fallback to '.' ({fallbackReason}) at {getTimeFormat()}\n"
+                )
+            _lf.write(f"INFO: Using Output_Dir={out_dir} at {getTimeFormat()}\n")
         base = "".join([userConfig["Subject_Name"], "-", getTimeFormat()])
         outputFileN = os.path.join(out_dir, base + ".dat")
         msgFileN = os.path.join(out_dir, base + ".log")
@@ -1060,37 +1066,29 @@ def printSerialOutput(ser, anSer, userConfig, analogEnabled, expStartTime):
                             )
                     except Exception:
                         pass
-                    # Zip the completed pair
-                    zipName = prevDat.replace(".dat", ".session.zip")
-                    try:
-                        with zipfile.ZipFile(
-                            zipName, "w", compression=zipfile.ZIP_DEFLATED
-                        ) as zf:
-                            if os.path.exists(prevDat):
-                                zf.write(prevDat, arcname=os.path.basename(prevDat))
-                            if os.path.exists(prevTrial):
-                                zf.write(prevTrial, arcname=os.path.basename(prevTrial))
-                    except Exception as e:
-                        msgList = [
-                            "Error:",
-                            "       Zipping failed on rotation: {0}".format(e),
-                        ]
-                        writeLogFile(msgFileN, msgList)
-                    # Reset counters for new files
-                    dataLineCount = 0
-                    trialSummaryLineCount = 0
-                    # Prepare new trial summary file
-                    trialSummaryFileN = outputFileN.replace(".dat", ".trial.csv")
-                    createInitialFile(trialSummaryFileN, "a")
-                    try:
-                        needHeader = os.path.getsize(trialSummaryFileN) == 0
-                    except OSError:
-                        needHeader = True
-                    if needHeader:
-                        with open(trialSummaryFileN, "a") as tsf_init:
-                            tsf_init.write(
-                                "eventCode,port1Prob,port2Prob,chosenPort,rewarded,trialId,blockId,unstructuredProb,sessionStartEpochMs,blockStartRelMs,trialStartRelMs,trialEndRelMs\n"
-                            )
+                    # Zip the completed pair (now optional)
+                    zipEnabled = (
+                        userConfig.get("Zip_On_Rotate", "true").lower() == "true"
+                    )
+                    if zipEnabled:
+                        zipName = prevDat.replace(".dat", ".session.zip")
+                        try:
+                            with zipfile.ZipFile(
+                                zipName, "w", compression=zipfile.ZIP_DEFLATED
+                            ) as zf:
+                                if os.path.exists(prevDat):
+                                    zf.write(prevDat, arcname=os.path.basename(prevDat))
+                                if os.path.exists(prevTrial):
+                                    zf.write(
+                                        prevTrial, arcname=os.path.basename(prevTrial)
+                                    )
+                        except Exception as e:
+                            msgList = [
+                                "Error:",
+                                "       Zipping failed on rotation: {0}".format(e),
+                            ]
+                            writeLogFile(msgFileN, msgList)
+                    # If zip disabled, files are simply left in place
 
             # Check exit signal
             if exitInst.exitStatus:
