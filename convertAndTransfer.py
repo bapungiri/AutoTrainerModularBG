@@ -324,49 +324,72 @@ def verify(cmds):
         logPrint("verify: found %s in %s: %s" % (file, dest, file in files))
 
 
-def routeRawDataPaths(mountpoint):
-    raw_base = os.path.join(mountpoint, "raw_data")
+def routeRawDataPaths(mountpoint, userConfig):
+    """
+    Build Subject_Name/raw_data/videos structure under the mounted FS.
+    """
+    import os
+
+    subj = userConfig.get("Subject_Name", "Subject").strip()
+    subject_base = os.path.join(mountpoint, subj)
+    raw_base = os.path.join(subject_base, "raw_data")
     videos_dir = os.path.join(raw_base, "videos")
-    try:
-        os.makedirs(videos_dir, exist_ok=True)
-    except Exception as e:
-        logPrint(f"routeRawDataPaths: failed to create raw_data dirs: {e}")
+    for p in (subject_base, raw_base, videos_dir):
+        try:
+            os.makedirs(p, exist_ok=True)
+        except Exception as e:
+            logPrint(f"routeRawDataPaths: mkdir fail {p}: {e}")
     return raw_base, videos_dir
 
 
-def transferRawMode(files, mountpoint, latest, fps=None, skipLatest=False):
-    raw_base, videos_dir = routeRawDataPaths(mountpoint)
-    transferred = []
+def transferRawMode(
+    files, mountpoint, latest, fps=None, skipLatest=False, userConfig=None
+):
+    """
+    Raw data mode: place session files in <mountpoint>/<Subject_Name>/raw_data
+    and video-related files in raw_data/videos.
+    """
+    import os, subprocess
+
+    raw_base, videos_dir = routeRawDataPaths(mountpoint, userConfig or {})
+    moved = []
     for file in files:
-        ext = os.path.splitext(file)[1][1:]
+        if not os.path.isfile(file):
+            continue
+        ext = os.path.splitext(file)[1][1:].lower()
         if skipLatest and ext in latest and file == latest[ext]:
             continue
-        # Convert video first
+        # Convert .h264 -> .mp4
         if ext == "h264":
             try:
                 file = convertVideo(file, fps)
-            except:
-                logPrint(f"transferRawMode: skipping failed convert {file}")
+                ext = "mp4"
+            except Exception as e:
+                logPrint(f"convert fail {file}: {e}")
                 continue
-            ext = "mp4"
         # Decide destination
         if ext in ("mp4", "events", "frames"):
             dest_dir = videos_dir
+            # Keep subfolder for frames/events (optional)
             if ext in ("events", "frames"):
-                # Keep subfolder per parent session if desired
                 sub = os.path.basename(os.path.dirname(file))
                 dest_dir = os.path.join(videos_dir, sub)
-                os.makedirs(dest_dir, exist_ok=True)
+                try:
+                    os.makedirs(dest_dir, exist_ok=True)
+                except Exception as e:
+                    logPrint(f"mkdir {dest_dir} fail: {e}")
+                    dest_dir = videos_dir
         else:
+            # dat, log, csv, etc.
             dest_dir = raw_base
         cmd = f"sudo rsync {file} {dest_dir}"
         try:
-            logPrint(f"transferRawMode: {cmd}")
+            logPrint(f"RAW_MODE: {cmd}")
             subprocess.run(cmd, shell=True)
-            transferred.append(cmd)
+            moved.append(cmd)
         except Exception as e:
-            logPrint(f"transferRawMode: FAILED {cmd}\n{e}")
-    return transferred
+            logPrint(f"rsync fail {file}: {e}")
+    return moved
 
 
 def main():
@@ -420,19 +443,24 @@ def main():
 
     rawMode = userInfo.get("Raw_Data_Mode", "false").lower() == "true"
 
-    if not specificDests and not rawMode:
+    if rawMode:
+        transferred = transferRawMode(
+            allFiles,
+            mountpoint,
+            latest,
+            camInfo.get("Camera_FPS"),
+            skipLatest,
+            userConfig=userInfo,
+        )
+    elif not specificDests:
         dailyDir = makeDirs(exts, mountpoint, specificDests)
         transferred = transfer(
-            allFiles, dailyDir, latest, camInfo["Camera_FPS"], skipLatest
-        )
-    elif rawMode:
-        transferred = transferRawMode(
-            allFiles, mountpoint, latest, camInfo["Camera_FPS"], skipLatest
+            allFiles, dailyDir, latest, camInfo.get("Camera_FPS"), skipLatest
         )
     else:
         dest = mountpoint
         transferred = specificTransfer(
-            allFiles, dest, latest, camInfo["Camera_FPS"], skipLatest
+            allFiles, dest, latest, camInfo.get("Camera_FPS"), skipLatest
         )
 
     time.sleep(10)
