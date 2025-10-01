@@ -33,6 +33,28 @@ def logPrint(text, prynt=True):
         print(text)
 
 
+def ensureDir(path):
+    """
+    Ensure path is a directory. If a regular file exists with same name, rename it (backup) and create dir.
+    """
+    if os.path.isdir(path):
+        return True
+    if os.path.isfile(path):
+        backup = path + ".conflict_file_" + str(int(time.time()))
+        try:
+            os.rename(path, backup)
+            logPrint("ensureDir: renamed conflicting file to %s" % backup)
+        except Exception as e:
+            logPrint("ensureDir: FAILED to rename conflicting file %s: %s" % (path, e))
+            return False
+    try:
+        os.makedirs(path, exist_ok=True)
+        return True
+    except Exception as e:
+        logPrint("ensureDir: FAILED to create dir %s: %s" % (path, e))
+        return False
+
+
 def mountFs(ip, fsDest, mountTo, creds, exitOnFail, remount):
     def isMountPoint(path):
         cmd = "mountpoint %s" % path
@@ -63,23 +85,18 @@ def mountFs(ip, fsDest, mountTo, creds, exitOnFail, remount):
 
         return
 
-    cmd = "sudo mount -t cifs //%s/%s %s -o credentials=%s" % (
-        ip,
-        fsDest,
-        mountTo,
-        creds,
+    # Enhanced mount options for CIFS write permissions
+    cmd = (
+        "sudo mount -t cifs //%s/%s %s -o credentials=%s,uid=pi,gid=pi,file_mode=0664,dir_mode=0775"
+        % (ip, fsDest, mountTo, creds)
     )
-
     subprocess.run(cmd, shell=True)
-    files = os.listdir(mountTo)
 
     if isMountPoint(mountTo):
         logPrint("mountFs: mounted NAS to %s" % mountTo)
         return
-
     else:
         logPrint("mountFs: FAILED to mount NAS:\n%s" % cmd)
-
         if exitOnFail:
             exit()
 
@@ -328,19 +345,16 @@ def verify(cmds):
 
 def routeRawDataPaths(mountpoint, userConfig):
     """
-    Build Subject_Name/raw_data/videos structure under the mounted FS.
+    Build <mountpoint>/<Subject_Name>/raw_data/videos layout.
     """
-    import os
-
     subj = userConfig.get("Subject_Name", "Subject").strip()
     subject_base = os.path.join(mountpoint, subj)
     raw_base = os.path.join(subject_base, "raw_data")
     videos_dir = os.path.join(raw_base, "videos")
+
     for p in (subject_base, raw_base, videos_dir):
-        try:
-            os.makedirs(p, exist_ok=True)
-        except Exception as e:
-            logPrint("routeRawDataPaths: mkdir fail {0}: {1}".format(p, e))
+        if not ensureDir(p):
+            logPrint("routeRawDataPaths: directory setup failed: %s" % p)
     return raw_base, videos_dir
 
 
@@ -348,11 +362,8 @@ def transferRawMode(
     files, mountpoint, latest, fps=None, skipLatest=False, userConfig=None
 ):
     """
-    Raw data mode: place session files in <mountpoint>/<Subject_Name>/raw_data
-    and video-related files in raw_data/videos.
+    Raw data mode: session files -> raw_data, video + events/frames -> raw_data/videos[/subdir]
     """
-    import os, subprocess
-
     raw_base, videos_dir = routeRawDataPaths(mountpoint, userConfig or {})
     moved = []
     for file in files:
@@ -361,32 +372,48 @@ def transferRawMode(
         ext = os.path.splitext(file)[1][1:].lower()
         if skipLatest and ext in latest and file == latest[ext]:
             continue
+
+        # Convert h264
         if ext == "h264":
             try:
                 file = convertVideo(file, fps)
                 ext = "mp4"
             except Exception as e:
-                logPrint("convert fail {0}: {1}".format(file, e))
+                logPrint("transferRawMode: skip h264 (convert fail) %s: %s" % (file, e))
                 continue
+
+        # Decide destination
         if ext in ("mp4", "events", "frames"):
             dest_dir = videos_dir
             if ext in ("events", "frames"):
                 sub = os.path.basename(os.path.dirname(file))
-                dest_dir2 = os.path.join(videos_dir, sub)
-                try:
-                    os.makedirs(dest_dir2, exist_ok=True)
-                    dest_dir = dest_dir2
-                except Exception as e:
-                    logPrint("mkdir {0} fail: {1}".format(dest_dir2, e))
+                # Optional subfolder for organizing by recording folder
+                sub_dir = os.path.join(videos_dir, sub)
+                if ensureDir(sub_dir):
+                    dest_dir = sub_dir
         else:
             dest_dir = raw_base
-        cmd = "sudo rsync {0} {1}".format(file, dest_dir)
+
+        if not os.path.isdir(dest_dir):
+            logPrint(
+                "transferRawMode: destination not a directory (skip): %s" % dest_dir
+            )
+            continue
+
+        # Trailing slash ensures rsync treats dest as directory
+        cmd = "sudo rsync %s %s/" % (file, dest_dir)
         try:
-            logPrint("RAW_MODE: {0}".format(cmd))
-            subprocess.run(cmd, shell=True)
+            logPrint("RAW_MODE: %s" % cmd)
+            proc = subprocess.run(cmd, shell=True)
+            if proc.returncode != 0:
+                logPrint(
+                    "transferRawMode: rsync non-zero exit (%d) %s"
+                    % (proc.returncode, file)
+                )
+                continue
             moved.append(cmd)
         except Exception as e:
-            logPrint("rsync fail {0}: {1}".format(file, e))
+            logPrint("transferRawMode: rsync exception %s: %s" % (file, e))
     return moved
 
 
