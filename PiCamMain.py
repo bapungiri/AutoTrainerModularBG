@@ -120,7 +120,7 @@ def generateHTML(resolution, ip):
         storage_path = "/"
     try:
         usage_pct = StorageMonitor.get_usage_percent(storage_path)
-        storage_display = f"{usage_pct:.1f}%"
+        storage_display = "{:.1f}%".format(usage_pct)
     except Exception:
         storage_display = "N/A"
 
