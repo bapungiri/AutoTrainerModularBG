@@ -19,6 +19,7 @@ from http import server as server  # Http server
 import glob  # File pattern search
 import signal  # Exit signal detection
 import re  # Regular expression module
+import StorageMonitor  # Background disk usage monitor
 
 
 def getTimeFormat(withTime=False, dash=False):
@@ -100,6 +101,29 @@ def getIP():
 def generateHTML(resolution, ip):
     """Generate an HTML page."""
 
+    storage_path = "/"
+    storage_display = "N/A"
+    try:
+        cam_cfg = globals().get("cameraConfig")
+        usr_cfg = globals().get("userConfig")
+        candidate = None
+        if isinstance(cam_cfg, dict):
+            candidate = cam_cfg.get("RPi_Video_Dir") or candidate
+        if not candidate and isinstance(usr_cfg, dict):
+            candidate = usr_cfg.get("Storage_Check_Path")
+        if candidate:
+            storage_path = candidate
+    except Exception:
+        pass
+    storage_path = storage_path or "/"
+    if not os.path.exists(storage_path):
+        storage_path = "/"
+    try:
+        usage_pct = StorageMonitor.get_usage_percent(storage_path)
+        storage_display = f"{usage_pct:.1f}%"
+    except Exception:
+        storage_display = "N/A"
+
     PAGE = """\
     <html>
     <head>
@@ -113,6 +137,7 @@ def generateHTML(resolution, ip):
         <th>User Name</th>
         <th>Box Name</th>
         <th>Subject Name</th>
+        <th>Storage Used</th>
       </tr>
       <tr>
         <td align="center"><font color="000FF">%s</font></td>
@@ -120,6 +145,7 @@ def generateHTML(resolution, ip):
         <td align="center"><font color="000FF">%s</font></td>
         <td align="center"><font color="000FF">%s</font></td>
         <td align="center"><font color="000FF">%s</font></td>
+                <td align="center"><font color="000FF">%s</font></td>
       </tr>
     </table>
     <p><img src="stream.mjpg" width="%d" height="%d" /></p>
@@ -133,6 +159,7 @@ def generateHTML(resolution, ip):
         userConfig["Name"],
         userConfig["Box_Name"],
         userConfig["Subject_Name"],
+        storage_display,
         resolution[1],
         resolution[0],
     )
@@ -1332,6 +1359,29 @@ if __name__ == "__main__":
 
     # Start camera recording based on user preference
     if not exitInst.exitStatus:
+        # Start background storage monitor (prefer checking video dir if available)
+        try:
+            check_path = cameraConfig.get("RPi_Video_Dir", "/")
+            threshold_pct = float(userConfig.get("Storage_Fill_Threshold", 85))
+            interval_sec = int(userConfig.get("Storage_Check_Interval_Sec", 600))
+            cooldown_sec = int(userConfig.get("Storage_Notify_Cooldown_Sec", 86400))
+            StorageMonitor.start_storage_monitor(
+                user_config=userConfig,
+                check_path=check_path,
+                threshold_pct=threshold_pct,
+                interval_sec=interval_sec,
+                cooldown_sec=cooldown_sec,
+                state_file="/tmp/atmod_storage_alert_cam.json",
+            )
+            logging.debug(
+                "Storage monitor started (path=%s, threshold=%.1f%%, interval=%ds)",
+                check_path,
+                threshold_pct,
+                interval_sec,
+            )
+        except Exception as _e:
+            logging.debug("Storage monitor failed to start: %s", _e)
+
         if cameraConfig["Recording_Mode"].lower() == "b":
             logging.debug("Recording in circular buffer mode.")
             cam1.setBuffer(

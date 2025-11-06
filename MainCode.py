@@ -21,6 +21,7 @@ import signal  # Python signal module [e.g., exit signal]
 from PIL import Image, ImageDraw, ImageFont  # Python Image module [change background]
 
 import pickle
+import StorageMonitor  # Background disk usage monitor
 
 
 class safeExit:
@@ -1178,6 +1179,31 @@ def main():
 
     # Sync RPi system time
     syncRPiTime(userConfig)
+
+    # Start background storage monitor (checks root filesystem by default)
+    try:
+        check_path = userConfig.get("Storage_Check_Path", "/")
+        threshold_pct = float(userConfig.get("Storage_Fill_Threshold", 85))
+        interval_sec = int(userConfig.get("Storage_Check_Interval_Sec", 600))
+        cooldown_sec = int(userConfig.get("Storage_Notify_Cooldown_Sec", 86400))
+        StorageMonitor.start_storage_monitor(
+            user_config=userConfig,
+            check_path=check_path,
+            threshold_pct=threshold_pct,
+            interval_sec=interval_sec,
+            cooldown_sec=cooldown_sec,
+        )
+        print(
+            "   ... Storage monitor started (path={}, threshold={}%, interval={}s)".format(
+                check_path, threshold_pct, interval_sec
+            )
+        )
+    except Exception as _e:
+        # Non-fatal: continue even if storage monitor fails to start
+        try:
+            print("   ... Storage monitor could not be started: {}".format(_e))
+        except Exception:
+            pass
 
     # Experiment start timeT
     expStartTime = time.time()

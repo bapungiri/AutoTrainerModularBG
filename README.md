@@ -22,6 +22,7 @@ Table of Contents
          * [7.3. Submit OpCon job remotely](#73-submit-opcon-job-remotely)  
          * [7.4. Get job results remotely](#74-get-job-results-remotely)  
 * [Tags](#tags)  
+* [Storage Monitoring (RPi)](#storage-monitoring-rpi)  
 
 ## Experiment Setup
 
@@ -803,3 +804,19 @@ Set A-to-D-Converter resolution to this many bits. It defaults to 10 bits (retur
 
 **Tag 005**  
 Refer this [Arduino page](https://www.arduino.cc/en/Tutorial/Smoothing) for manual averaging.
+
+## Storage Monitoring (RPi)
+
+The codebase includes a lightweight storage monitor that periodically checks the Raspberry Pi's disk usage and sends an email alert when usage exceeds a configurable threshold (default: 85%). This runs in the background within both `MainCode.py` and `PiCamMain.py` when those scripts are started.
+
+Configuration (optional) keys in `userInfo.in`:
+
+- `Storage_Fill_Threshold` — percentage used at which to alert (default `85`)
+- `Storage_Check_Path` — filesystem path to check; use `/` to monitor the SD card (default `/`)
+- `Storage_Check_Interval_Sec` — how often to check, in seconds (default `600` = 10 minutes)
+- `Storage_Notify_Cooldown_Sec` — minimum seconds between emails while still above threshold (default `86400` = 24 hours)
+
+Notes:
+- Email delivery uses the same fields already present in `userInfo.in` (`Enable_Email`, `WD_Email`, `WD_Pass`, `WD_SMTP`, `WD_SMTP_Port`, `WD_SSL`, `Email`, `Name`).
+- Alerts are rate-limited and also persisted in `/tmp/atmod_storage_alert*.json` to avoid spamming across restarts.
+- `PiCamMain.py` prefers checking the camera storage path (`RPi_Video_Dir` from its config) if provided; otherwise it falls back to `/`.
