@@ -15,7 +15,7 @@ import smtplib
 import threading
 import time
 from datetime import datetime
-from email.message import EmailMessage
+from email.mime.text import MIMEText
 
 try:
     import netifaces  # type: ignore
@@ -85,43 +85,50 @@ def send_email(message, user_config, subject="Storage usage high"):
         if not recipient_email or not email_user:
             return False
 
-        msg = EmailMessage()
-        msg["Subject"] = subject
-        msg["From"] = email_user
-        msg["To"] = recipient_email
-
-        msg.set_content(
+        body = (
             "Hello {name},\n\n"
             "This is an automated notification from the RPi watchdog.\n\n"
             "{body}\n\n"
             "Date and Time: {ts}\n"
             "IP address: {ip}\n\n"
-            "-RPi Watchdog".format(
-                name=user_config.get("Name", "User"),
-                body=message,
-                ts=_now_str(),
-                ip=_resolve_ip(),
-            )
+            "-RPi Watchdog"
+        ).format(
+            name=user_config.get("Name", "User"),
+            body=message,
+            ts=_now_str(),
+            ip=_resolve_ip(),
         )
+
+        msg = MIMEText(body)
+        msg["Subject"] = subject
+        msg["From"] = email_user
+        msg["To"] = recipient_email
 
         smtp_address = user_config.get("WD_SMTP", "")
         smtp_port = int(user_config.get("WD_SMTP_Port", 465))
         use_ssl = user_config.get("WD_SSL", "true").lower() == "true"
         password = _decode_password(user_config.get("WD_Pass", ""))
 
-        if use_ssl:
-            server = smtplib.SMTP_SSL(smtp_address, smtp_port)
-        else:
-            server = smtplib.SMTP(smtp_address, smtp_port)
-            server.starttls()
+        server = None
+        try:
+            if use_ssl:
+                server = smtplib.SMTP_SSL(smtp_address, smtp_port)
+            else:
+                server = smtplib.SMTP(smtp_address, smtp_port)
 
-        with server:
+            server.ehlo()
             if email_user:
                 try:
                     server.login(email_user, password)
                 except Exception:
                     return False
-            server.send_message(msg)
+            server.sendmail(email_user, [recipient_email], msg.as_string())
+        finally:
+            if server is not None:
+                try:
+                    server.quit()
+                except Exception:
+                    pass
         return True
     except Exception:
         return False
