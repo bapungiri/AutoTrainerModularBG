@@ -155,7 +155,8 @@ class StorageMonitor(threading.Thread):
         state_file=None,
         name="StorageMonitor",
     ):
-        super().__init__(name=name, daemon=True)
+        super(StorageMonitor, self).__init__(name=name)
+        self.daemon = True
         self.user_config = dict(user_config or {})
         self.check_path = check_path
         self.threshold_pct = float(threshold_pct)
