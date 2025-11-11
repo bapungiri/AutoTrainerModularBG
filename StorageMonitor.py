@@ -166,6 +166,9 @@ class StorageMonitor(threading.Thread):
         self._stop_event = threading.Event()
         self._last_notified = 0.0
         self._was_above = False
+        # Cache callables so the thread can keep running during interpreter shutdown
+        self._send_email = send_email
+        self._get_usage_percent = get_usage_percent
 
     def stop(self):
         self._stop_event.set()
@@ -192,11 +195,11 @@ class StorageMonitor(threading.Thread):
     def run(self):
         while not self._stop_event.is_set():
             try:
-                pct = get_usage_percent(self.check_path)
+                pct = self._get_usage_percent(self.check_path)
                 now = time.time()
                 above = pct >= self.threshold_pct
                 if self._should_notify(now, above):
-                    if send_email(self._build_message(pct), self.user_config):
+                    if self._send_email(self._build_message(pct), self.user_config):
                         self._last_notified = now
                 self._was_above = above
             except Exception:
