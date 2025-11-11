@@ -2,7 +2,6 @@
 
 import serial  # Python module to communicate with the Teensy serial
 import hashlib  # For checksum generation
-import zipfile  # For zipping session files
 import time  # Python time module
 import os  # Python operating system module (mkdir, rm, ...)
 import datetime  # Python date and time module for time purpose
@@ -1009,29 +1008,7 @@ def printSerialOutput(ser, anSer, userConfig, analogEnabled, expStartTime):
                             )
                     except Exception:
                         pass
-                    # Zip the completed pair (now optional)
-                    zipEnabled = (
-                        userConfig.get("Zip_On_Rotate", "true").lower() == "true"
-                    )
-                    if zipEnabled:
-                        zipName = prevDat.replace(".dat", ".session.zip")
-                        try:
-                            with zipfile.ZipFile(
-                                zipName, "w", compression=zipfile.ZIP_DEFLATED
-                            ) as zf:
-                                if os.path.exists(prevDat):
-                                    zf.write(prevDat, arcname=os.path.basename(prevDat))
-                                if os.path.exists(prevTrial):
-                                    zf.write(
-                                        prevTrial, arcname=os.path.basename(prevTrial)
-                                    )
-                        except Exception as e:
-                            msgList = [
-                                "Error:",
-                                "       Zipping failed on rotation: {0}".format(e),
-                            ]
-                            writeLogFile(msgFileN, msgList)
-                    # If zip disabled, files are simply left in place
+                    # Files remain on disk uncompressed after rotation
 
             # Check exit signal
             if exitInst.exitStatus:
