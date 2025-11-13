@@ -71,27 +71,48 @@ def writeLogFile(fileName, msgList):
 def getOutputDir(userConfig):
     """
     Resolve the base directory where .dat/.log/.trial.csv files are written.
+
+    The resolved path always includes a subject-specific subdirectory so that
+    each animal's data is grouped under ``Output_Dir/<Subject_Name>``.
     """
+
     try:
         raw = userConfig.get("Output_Dir", "").strip()
     except Exception:
         raw = ""
+
     if not raw or raw.lower() == "default":
-        out_dir = "."
+        base_dir = "."
         userConfig["_Output_Dir_Fallback"] = "missing_or_default"
     else:
-        out_dir = os.path.expandvars(os.path.expanduser(raw))
+        base_dir = os.path.expandvars(os.path.expanduser(raw))
+
     try:
-        os.makedirs(out_dir, exist_ok=True)
+        os.makedirs(base_dir, exist_ok=True)
     except Exception as e:
-        # Record fallback reason
+        # Record fallback reason and fall back to current directory
         userConfig["_Output_Dir_Fallback"] = "create_failed:" + str(e)
-        out_dir = "."
+        base_dir = "."
         try:
-            os.makedirs(out_dir, exist_ok=True)
+            os.makedirs(base_dir, exist_ok=True)
         except Exception:
             pass
-    return out_dir
+
+    subject_name = userConfig.get("Subject_Name", "Subject")
+    if not isinstance(subject_name, str):
+        subject_name = str(subject_name)
+    subject_name = subject_name.strip() or "Subject"
+    safe_subject = subject_name.replace(os.sep, "_").replace("/", "_")
+
+    final_dir = os.path.join(base_dir, safe_subject)
+    try:
+        os.makedirs(final_dir, exist_ok=True)
+    except Exception as e:
+        # If creating the subject subdirectory fails, fallback to base_dir but note it
+        userConfig["_Output_Dir_Subdir_Fallback"] = "create_failed:" + str(e)
+        final_dir = base_dir
+
+    return final_dir
 
 
 def syncRPiTime(userConfig):
@@ -1222,6 +1243,8 @@ def main():
     if analogEnabled:
         anSer.close()
     GPIO.cleanup()
+
+    # Trigger transfer/backup pipeline after every run
 
 
 if __name__ == "__main__":

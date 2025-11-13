@@ -29,7 +29,7 @@ Output_Size   = C
 
 # ---- Video Files Transfer Information [Only change Storage_Video_Dir]
 Storage_Video_Dir = 
-RPi_Video_Dir     = /home/pi/ExpData/Video
+#RPi_Video_Dir     = /home/pi/ExpData/Video, #Old way, using Output_Dir in userinfo.in
 Protocol          = rsync
 Transfer_Ext      = *.frames; *.events
 Log_File_Dir      = /home/pi/rsynclog.txt

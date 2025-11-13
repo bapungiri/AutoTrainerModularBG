@@ -9,6 +9,10 @@ import subprocess
 import time
 
 
+ATM_BACKUP_ROOT = "/home/pi/ATM_backups"
+ATM_BACKUP_ROOT_LEGACY = "/home/pi/ATM_Backups"
+
+
 def getUserConfig(fileName, splitterChar):
     userConfig = {}
 
@@ -199,7 +203,7 @@ def transfer(files, dest, latest, fps=None, skipLatest=False):
     dailyDirCreated = False
 
     for file in files:
-        ext = os.path.splitext(file)[1][1:]
+        ext = os.path.splitext(file)[1][1:].lower()
 
         if skipLatest and file == latest[ext]:
             logPrint("tranfer: latest file, ignored:\n%s" % file)
@@ -239,7 +243,7 @@ def specificTransfer(files, dest, latest, fps=None, skipLatest=False):
     transferred = []
 
     for file in files:
-        ext = os.path.splitext(file)[1][1:]
+        ext = os.path.splitext(file)[1][1:].lower()
 
         if skipLatest and latest[ext] == file:
             logPrint("specificTransfer: latest file, ignored:\n%s" % file)
@@ -343,6 +347,121 @@ def verify(cmds):
         logPrint("verify: found %s in %s: %s" % (file, dest, file in files))
 
 
+def _safe_subject_name(raw):
+    name = (raw or "Subject").strip()
+    if not name:
+        name = "Subject"
+    return name.replace(os.sep, "_").replace("/", "_")
+
+
+def resolve_subject_output_dir(user_config):
+    base_raw = str(user_config.get("Output_Dir", "")).strip()
+    if not base_raw or base_raw.lower() == "default":
+        base_dir = os.path.abspath(".")
+    else:
+        base_dir = os.path.expandvars(os.path.expanduser(base_raw))
+
+    try:
+        os.makedirs(base_dir, exist_ok=True)
+    except Exception:
+        base_dir = os.path.abspath(".")
+        try:
+            os.makedirs(base_dir, exist_ok=True)
+        except Exception:
+            pass
+
+    safe_subject = _safe_subject_name(user_config.get("Subject_Name"))
+    target = os.path.join(base_dir, safe_subject)
+    try:
+        os.makedirs(target, exist_ok=True)
+    except Exception:
+        return base_dir
+    return target
+
+
+def sync_code_backups(userConfig, mountpoint):
+    """Move older code backups to NAS, keep latest on the Pi."""
+
+    subject = _safe_subject_name(userConfig.get("Subject_Name"))
+
+    candidate_roots = []
+    for base in [ATM_BACKUP_ROOT, ATM_BACKUP_ROOT_LEGACY]:
+        if not base:
+            continue
+        subject_root = os.path.join(base, subject)
+        legacy_root = os.path.join(subject_root, "ATM_backups")
+        candidate_roots.append((subject_root, legacy_root))
+
+    local_root = None
+    for subject_root, legacy_root in candidate_roots:
+        if os.path.isdir(subject_root):
+            local_root = subject_root
+            break
+        if os.path.isdir(legacy_root):
+            # Legacy layout: /home/pi/ATM_backups/<subject>/ATM_backups/
+            local_root = legacy_root
+            break
+
+    if not local_root:
+        logPrint("sync_code_backups: no local backup directory found for %s" % subject)
+        return
+
+    try:
+        entries = [
+            os.path.join(local_root, d)
+            for d in os.listdir(local_root)
+            if os.path.isdir(os.path.join(local_root, d)) and not d.startswith(".")
+        ]
+    except Exception as e:
+        logPrint(
+            "sync_code_backups: failed to list backups in %s: %s" % (local_root, e)
+        )
+        return
+
+    if len(entries) <= 1:
+        logPrint("sync_code_backups: zero or one backup found; nothing to offload")
+        return
+
+    entries.sort()
+    latest = entries[-1]
+    to_transfer = entries[:-1]
+
+    remote_root = os.path.join(mountpoint, subject, "ATM_backups")
+    if not ensureDir(remote_root):
+        logPrint("sync_code_backups: could not ensure remote dir %s" % remote_root)
+        return
+
+    for backup_path in to_transfer:
+        backup_name = os.path.basename(backup_path)
+        dest_dir = os.path.join(remote_root, backup_name)
+        if not ensureDir(dest_dir):
+            logPrint("sync_code_backups: failed to ensure destination %s" % dest_dir)
+            continue
+
+        sync_cmd = "sudo rsync -a %s/ %s/" % (backup_path, dest_dir)
+        logPrint("sync_code_backups: transferring backup -> %s" % sync_cmd)
+        proc = subprocess.run(sync_cmd, shell=True)
+        if proc.returncode != 0:
+            logPrint(
+                "sync_code_backups: rsync failed (%d) for %s"
+                % (proc.returncode, backup_path)
+            )
+            continue
+
+        remove_cmd = "sudo rm -rf %s" % backup_path
+        logPrint("sync_code_backups: removing local copy -> %s" % remove_cmd)
+        rm_proc = subprocess.run(remove_cmd, shell=True)
+        if rm_proc.returncode != 0:
+            logPrint(
+                "sync_code_backups: failed to remove %s (code %d)"
+                % (backup_path, rm_proc.returncode)
+            )
+        else:
+            logPrint("sync_code_backups: completed transfer of %s" % backup_name)
+
+    logPrint("sync_code_backups: retained latest backup on Pi: %s" % latest)
+
+
 def routeRawDataPaths(mountpoint, userConfig):
     """
     Build <mountpoint>/<Subject_Name>/raw_data/videos layout.
@@ -437,8 +556,21 @@ def main():
     logPrint("main: START @ %s" % time.ctime())
     logPrint("main:\nuserInfo:\n%s\n\ncamInfo:\n%s" % (userInfo, camInfo))
 
-    exts = [ext.strip() for ext in userInfo["File_Exts"].split(",")]
+    exts = [
+        ext.strip().lower() for ext in userInfo["File_Exts"].split(",") if ext.strip()
+    ]
+    if "dat" in exts and "csv" not in exts:
+        exts.append("csv")
+        logPrint("main: automatically including csv alongside dat for transfer")
     lookInPaths = [path.strip() for path in userInfo["Look_In_Paths"].split(",")]
+    subject_output_dir = resolve_subject_output_dir(userInfo)
+    local_video_dir = os.path.join(subject_output_dir, "Video")
+    try:
+        os.makedirs(local_video_dir, exist_ok=True)
+    except Exception:
+        pass
+    if local_video_dir not in lookInPaths:
+        lookInPaths.append(local_video_dir)
     mountpoint = userInfo["Mountpoint"]
 
     if userInfo["Transfer_Enabled"].lower() == "false":
@@ -494,6 +626,8 @@ def main():
     if userInfo["Delete_Moved"].lower() == "true":
         keepLatest = userInfo["Keep_Latest"].lower() == "true"
         deleteMoved(transferred, latest, keepLatest)
+
+    sync_code_backups(userInfo, mountpoint)
 
 
 if __name__ == "__main__":

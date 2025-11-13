@@ -56,6 +56,38 @@ def getUserConfig(fileName, splitterChar):
     return userConfig
 
 
+def resolve_subject_output_dir(user_config):
+    """Return Output_Dir/<Subject_Name> with fallbacks."""
+
+    base_raw = str(user_config.get("Output_Dir", "")).strip()
+    if not base_raw or base_raw.lower() == "default":
+        base_dir = os.path.abspath(".")
+    else:
+        base_dir = os.path.expandvars(os.path.expanduser(base_raw))
+
+    try:
+        os.makedirs(base_dir, exist_ok=True)
+    except Exception:
+        base_dir = os.path.abspath(".")
+        try:
+            os.makedirs(base_dir, exist_ok=True)
+        except Exception:
+            pass
+
+    subject = user_config.get("Subject_Name", "Subject")
+    if not isinstance(subject, str):
+        subject = str(subject)
+    subject = subject.strip() or "Subject"
+    safe_subject = subject.replace(os.sep, "_").replace("/", "_")
+
+    target = os.path.join(base_dir, safe_subject)
+    try:
+        os.makedirs(target, exist_ok=True)
+    except Exception:
+        return base_dir
+    return target
+
+
 def removeFDir(path, backup=False, empty=False):
     """Remove files/directories with additional option
     empty: True (remove only when dir is empty)
@@ -1329,7 +1361,10 @@ if __name__ == "__main__":
     cam1.setRecordSched(cameraConfig, "SetInitialAlarms.h")
 
     # Set video local storage
-    cam1.setStorage(cameraConfig["RPi_Video_Dir"])
+    subject_output_dir = resolve_subject_output_dir(userConfig)
+    video_dir = os.path.join(subject_output_dir, "Video")
+    cameraConfig["RPi_Video_Dir"] = video_dir
+    cam1.setStorage(video_dir)
 
     # IMPORTANT: any change to fps, rotation, bitrate: first stop camera, start it again
     #                (ShSp, ISO, WG1,   WG2,   AnG,   DiG,   Rot, FPS, BRate)

@@ -13,6 +13,9 @@ import re  # Python regular expression
 from datetime import datetime  # Timestamp for remote backups
 
 
+_BACKED_UP_TARGETS = set()
+
+
 def createSSHClient(rpiHost, rpiUser, rpiPass):
     """
     Function to create an SSH client with python paramiko
@@ -103,7 +106,13 @@ def printSTDOutput(std):
         yield ("   " + txt.decode("utf-8"))
 
 
-def backup_remote_directory(ssh, source_dir, backup_root="/home/pi/ATM_Backups"):
+def backup_remote_directory(
+    ssh,
+    source_dir,
+    backup_root="/home/pi/ATM_backups",
+    host_key=None,
+    subject_name=None,
+):
     """Create a timestamped backup of ``source_dir`` on the remote host.
 
     Hidden folders (starting with ".") and files with extensions .dat, .log,
@@ -117,10 +126,18 @@ def backup_remote_directory(ssh, source_dir, backup_root="/home/pi/ATM_Backups")
     if not source_dir:
         return
 
+    cache_key = host_key or source_dir
+    if cache_key in _BACKED_UP_TARGETS:
+        return
+
     timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
     src_name = os.path.basename(source_dir)
     if not src_name:
         src_name = "AutoTrainerModular"
+
+    subject_part = subject_name.strip().replace("/", "_") if subject_name else ""
+    if subject_part:
+        backup_root = posixpath.join(backup_root, subject_part)
 
     backup_dir = posixpath.join(backup_root, f"{src_name}-{timestamp}")
     exclude_patterns = [
@@ -164,6 +181,8 @@ def backup_remote_directory(ssh, source_dir, backup_root="/home/pi/ATM_Backups")
             print("   " + line)
     elif not reported:
         print(f"   ... Backup command completed with no output for {source_dir}.")
+
+    _BACKED_UP_TARGETS.add(cache_key)
 
 
 def RPiFileUpload(ssh, localDir, remoteDir, fileExt, iPrint=True):
@@ -559,7 +578,12 @@ def deployAudioRecording(
 
     rpiSSH = createSSHClient(ipAdd, rpiUser, rpiPass)
 
-    backup_remote_directory(rpiSSH, rpiRoot.rstrip("/"))
+    backup_remote_directory(
+        rpiSSH,
+        rpiRoot.rstrip("/"),
+        host_key=f"{ipAdd}:{rpiRoot.rstrip('/')}",
+        subject_name=userConfig.get("Subject_Name"),
+    )
 
     # Transfer files over to RPi [Master or Slave]
     for i, item in enumerate(localDir):
@@ -639,7 +663,12 @@ def deployPiCamTransfer(
 
         rpiSSH = createSSHClient(ipAdd, rpiUser, rpiPass)
 
-        backup_remote_directory(rpiSSH, rpiRoot.rstrip("/"))
+        backup_remote_directory(
+            rpiSSH,
+            rpiRoot.rstrip("/"),
+            host_key=f"{ipAdd}:{rpiRoot.rstrip('/')}",
+            subject_name=userConfig.get("Subject_Name"),
+        )
 
         # Transfer files over to RPi [Master or Slave]
         for i, item in enumerate(localDir):
@@ -858,7 +887,12 @@ def main():
             if not checkProcessStatus(rpiSSH, "MainCode", userConfig):
                 return
 
-    backup_remote_directory(rpiSSH, rpiRoot.rstrip("/"))
+    backup_remote_directory(
+        rpiSSH,
+        rpiRoot.rstrip("/"),
+        host_key=f"{rpiHost}:{rpiRoot.rstrip('/')}",
+        subject_name=userConfig.get("Subject_Name"),
+    )
 
     # Run picamera/transfer code
     if "Run_Camera" in userConfig:
