@@ -23,6 +23,12 @@ import pickle
 import StorageMonitor  # Background disk usage monitor
 
 
+TRIAL_SUMMARY_HEADER = (
+    "eventCode,port1Prob,port2Prob,chosenPort,rewarded,trialId,blockId,"
+    "unstructuredProb,sessionStartEpochMs,blockStartRelMs,trialStartRelMs,trialEndRelMs\n"
+)
+
+
 class safeExit:
     """
     Class to exit the program safely.
@@ -790,9 +796,7 @@ def printSerialOutput(ser, anSer, userConfig, analogEnabled, expStartTime):
             needHeader = True
         if needHeader:
             with open(trialSummaryFileN, "a") as tsf_init:
-                tsf_init.write(
-                    "eventCode,port1Prob,port2Prob,chosenPort,rewarded,trialId,blockId,unstructuredProb,sessionStartEpochMs,blockStartRelMs,trialStartRelMs,trialEndRelMs\n"
-                )
+                tsf_init.write(TRIAL_SUMMARY_HEADER)
 
         # Initialize counters for session integrity
         dataLineCount = 0  # number of legacy 8-field lines written to .dat
@@ -1030,6 +1034,17 @@ def printSerialOutput(ser, anSer, userConfig, analogEnabled, expStartTime):
                     except Exception:
                         pass
                     # Files remain on disk uncompressed after rotation
+
+                    # Prepare new trial summary file matching rotated .dat
+                    trialSummaryFileN = outputFileN.replace(".dat", ".trial.csv")
+                    createInitialFile(trialSummaryFileN, "a")
+                    try:
+                        needHeaderNew = os.path.getsize(trialSummaryFileN) == 0
+                    except OSError:
+                        needHeaderNew = True
+                    if needHeaderNew:
+                        with open(trialSummaryFileN, "a") as tsf_init:
+                            tsf_init.write(TRIAL_SUMMARY_HEADER)
 
             # Check exit signal
             if exitInst.exitStatus:
