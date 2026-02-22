@@ -451,6 +451,11 @@ class PiCameraObject(object):
         self.recordStart = None
         self.recordStop = None
 
+        # Camera active mode: 'always' (default), 'session', or 'on_demand'
+        self.activeMode = "always"
+        self.demandFlagFile = "/tmp/picam_active"
+        self._scheduleInitialized = False
+
         self.camera = picamera.PiCamera(clock_mode="raw")
 
         self.setSensorMode()
@@ -600,6 +605,43 @@ class PiCameraObject(object):
 
         logging.debug("".join(["The record start times are: ", str(self.recordStart)]))
         logging.debug("".join(["The record stop  times are: ", str(self.recordStop)]))
+
+    def setActiveMode(self, mode="always", demand_flag_file="/tmp/picam_active"):
+        """Set camera active mode.
+
+        Parameters:
+            mode            : 'always'    - camera always active (default)
+                              'session'   - camera active only during scheduled training windows
+                              'on_demand' - camera active when flag file exists
+            demand_flag_file: path to flag file used for 'on_demand' mode
+        """
+
+        if mode not in ("always", "session", "on_demand"):
+            logging.debug(
+                "Unknown Camera_Active_Mode '%s'. Defaulting to 'always'." % mode
+            )
+            mode = "always"
+        self.activeMode = mode
+        self.demandFlagFile = demand_flag_file
+        logging.debug("Camera active mode set to: " + mode)
+
+    def isCameraActiveTime(self):
+        """Return True if camera should be active based on Camera_Active_Mode.
+
+        - 'always'    : always returns True
+        - 'session'   : returns True only during scheduled recording windows
+        - 'on_demand' : returns True only when the demand flag file exists
+        """
+
+        if self.activeMode == "on_demand":
+            return os.path.exists(self.demandFlagFile)
+        elif self.activeMode == "session":
+            if self.recordStart and len(self.recordStart) > 0:
+                if not self._scheduleInitialized:
+                    self.recordSchedule()
+                return self.checkTime()
+            return True  # No schedule defined; treat as always active
+        return True  # 'always' mode
 
     def getDSTInfo(self, fileName):
         """
@@ -1011,7 +1053,25 @@ class PiCameraObject(object):
     def recordCircular(self):
         """Start camera recording in circular mode.
         This recording mode extracts frames in circular buffer for each trial.
+
+        When Camera_Active_Mode is 'session' or 'on_demand', the circular buffer
+        is only active during the scheduled training window (or while the demand
+        flag file exists). Outside those windows the camera stops recording and
+        waits, then automatically restarts when the next window begins.
         """
+
+        # In session/on_demand mode, wait until the camera should be active
+        if self.activeMode in ("session", "on_demand"):
+            self.recordSchedule()
+            if not self.isCameraActiveTime():
+                logging.debug(
+                    "Camera active mode is '%s'. Waiting for active window ..."
+                    % self.activeMode
+                )
+                while not self.isCameraActiveTime() and not exitInst.exitStatus:
+                    time.sleep(1)
+                if exitInst.exitStatus:
+                    return
 
         # initiate camera
         self.initiateCamera()
@@ -1061,6 +1121,31 @@ class PiCameraObject(object):
                         )
 
                         recordFlag = 0
+                        eventLog = ""
+
+                    # In session/on_demand mode, pause the circular buffer when
+                    # outside the active window and resume when it opens again.
+                    if (
+                        self.activeMode in ("session", "on_demand")
+                        and recordFlag == 0
+                        and not self.isCameraActiveTime()
+                    ):
+                        if self.camera.recording:
+                            self.camera.stop_recording(
+                                splitter_port=self.splitter_port
+                            )
+                        logging.debug(
+                            "Camera active window ended. Waiting for next window ..."
+                        )
+                        while not self.isCameraActiveTime() and not exitInst.exitStatus:
+                            time.sleep(1)
+                        if exitInst.exitStatus:
+                            raise Exception("An exit signal received by OS.")
+                        # Restart the circular buffer for the new active window
+                        logging.debug(
+                            "Camera active window started. Restarting buffer ..."
+                        )
+                        self.initiateCamera()
                         eventLog = ""
 
                     time.sleep(5e-4)
@@ -1133,6 +1218,7 @@ class PiCameraObject(object):
 
         self.startSec = [i[0] * 3600 + i[1] * 60 for i in self.recordStart]
         self.stopSec = [i[0] * 3600 + i[1] * 60 for i in self.recordStop]
+        self._scheduleInitialized = True
 
     def checkTime(self):
         now = self.getTime() % 86400
@@ -1150,10 +1236,26 @@ class PiCameraObject(object):
         return False
 
     def recordContinuous(self):
-        """Start camera recording in continuous mode."""
+        """Start camera recording in continuous mode.
+
+        When Camera_Active_Mode is 'on_demand', recording starts/stops based on
+        the presence of the demand flag file instead of the time schedule.
+        For 'always' and 'session' modes the existing schedule-based behaviour
+        (checkTime) is preserved.
+        """
 
         self.recordSchedule()
         self.recordingStatus = False
+
+        # For 'on_demand' mode, start/stop recording based on the flag file.
+        # For 'always' and 'session' modes, the existing time-schedule (checkTime)
+        # governs when continuous recording runs — the Camera_Active_Mode applies
+        # at the hardware level and is already enforced by recordCircular for mode B.
+        _is_active = (
+            self.isCameraActiveTime
+            if self.activeMode == "on_demand"
+            else self.checkTime
+        )
 
         try:
             eventLog = ""
@@ -1164,20 +1266,20 @@ class PiCameraObject(object):
             deleteName = None
             lastEvent = None
 
-            if not self.checkTime():
+            if not _is_active():
                 logging.debug("Waiting for alarm ...")
             while True:
 
                 # Wait until queue is populated
                 while self.GPIOqueue.empty():
 
-                    startFlag = not self.recordingStatus and self.checkTime()
-                    stopFlag = self.recordingStatus and not self.checkTime()
+                    startFlag = not self.recordingStatus and _is_active()
+                    stopFlag = self.recordingStatus and not _is_active()
 
                     # Split every X sec (minimum 2 sec long file), X=contPeriod
                     splitFlag = (
                         self.recordingStatus
-                        and self.checkTime()
+                        and _is_active()
                         and self.getTime() % self.contPeriod < 0.5
                         and self.getTime() - startTime > 2
                     )
@@ -1359,6 +1461,12 @@ if __name__ == "__main__":
     )
 
     cam1.setRecordSched(cameraConfig, "SetInitialAlarms.h")
+
+    # Set camera active mode (always | session | on_demand)
+    cam1.setActiveMode(
+        mode=cameraConfig.get("Camera_Active_Mode", "always").strip().lower(),
+        demand_flag_file=cameraConfig.get("Camera_Demand_Flag", "/tmp/picam_active").strip(),
+    )
 
     # Set video local storage
     subject_output_dir = resolve_subject_output_dir(userConfig)
