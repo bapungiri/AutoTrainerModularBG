@@ -11,6 +11,11 @@ Camera_Pin        = 26
 Camera_Format     = h264
 Stream_Port       = 9000
 
+# ---- Camera Active Mode [always: always on, session: training schedule only, on_demand: flag file]
+# ---- on_demand: create /tmp/picam_active to start, remove it to stop
+Camera_Active_Mode = always
+Camera_Demand_Flag = /tmp/picam_active
+
 # ---- Recording Schedule [U: User Set, T: Training Schedule]
 Record_Schedule   = T
 Record_Start      = [( 2, 30), (19, 20), (22,  0)]
