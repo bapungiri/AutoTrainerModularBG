@@ -19,6 +19,7 @@ from http import server as server  # Http server
 import glob  # File pattern search
 import signal  # Exit signal detection
 import re  # Regular expression module
+from urllib.parse import urlparse  # URL helper
 import StorageMonitor  # Background disk usage monitor
 
 SCHEDULE_LEAD_SEC = 600  # seconds before schedule to power on camera
@@ -368,12 +369,70 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
     def get_page(self):
         return generateHTML([360, 640], getIP())
 
+    PATH_SUFFIXES = (
+        "/status",
+        "/off",
+        "/on",
+        "/stream.mjpg",
+        "/index.html",
+    )
+
+    def _build_index_redirect(self, base):
+        if base and not base.endswith("/"):
+            return base + "/index.html"
+        return "/index.html"
+
+    def _split_base_suffix(self):
+        parsed_url = urlparse(self.path)
+        normalized_path = parsed_url.path or "/"
+        if normalized_path != "/" and normalized_path.endswith("/"):
+            normalized_path = normalized_path.rstrip("/")
+        base = ""
+        prefix = "/camera"
+        core_path = normalized_path
+        if normalized_path == prefix or normalized_path.startswith(prefix + "/"):
+            base = prefix
+            core_path = normalized_path[len(prefix) :]
+            if not core_path:
+                core_path = "/"
+        if not core_path:
+            core_path = "/"
+        if core_path != "/" and not core_path.startswith("/"):
+            core_path = "/" + core_path
+
+        if core_path == "/":
+            return base, "/"
+
+        for suffix in self.PATH_SUFFIXES:
+            if core_path == suffix:
+                return base, suffix
+        return normalized_path, None
+
     def do_GET(self):
-        if self.path == "/":
-            self.send_response(301)
-            self.send_header("Location", "/index.html")
+        base, suffix = self._split_base_suffix()
+        if suffix is None:
+            # Quietly handle favicon to avoid noisy 404s in the log
+            if self.path.endswith("/favicon.ico"):
+                self.send_response(204)
+                self.end_headers()
+                return
+            # If we're under /camera but hit an unknown child, send the user back home
+            if base == "/camera":
+                self.send_response(302)
+                self.send_header("Location", self._build_index_redirect(base))
+                self.end_headers()
+                return
+            self.send_error(404)
             self.end_headers()
-        elif self.path == "/index.html":
+            return
+
+        if suffix == "/":
+            self.send_response(301)
+            self.send_header("Location", self._build_index_redirect(base))
+            self.end_headers()
+            return
+
+        if suffix == "/index.html":
             PAGE = self.get_page()
             content = PAGE.encode("utf-8")
             self.send_response(200)
@@ -381,17 +440,23 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
             self.send_header("Content-Length", len(content))
             self.end_headers()
             self.wfile.write(content)
-        elif self.path == "/camera/on":
+            return
+
+        if suffix == "/on":
             set_manual_override(True)
             self.send_response(302)
-            self.send_header("Location", "/index.html")
+            self.send_header("Location", self._build_index_redirect(base))
             self.end_headers()
-        elif self.path == "/camera/off":
+            return
+
+        if suffix == "/off":
             set_manual_override(False)
             self.send_response(302)
-            self.send_header("Location", "/index.html")
+            self.send_header("Location", self._build_index_redirect(base))
             self.end_headers()
-        elif self.path == "/camera/status":
+            return
+
+        if suffix == "/status":
             status = {
                 "manual_override": get_manual_override(),
                 "camera_running": is_camera_running(),
@@ -403,7 +468,9 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
             self.send_header("Content-Length", len(payload))
             self.end_headers()
             self.wfile.write(payload)
-        elif self.path == "/stream.mjpg":
+            return
+
+        if suffix == "/stream.mjpg":
             if piCamWebOutput is None or not is_camera_running():
                 self.send_error(503, "Camera not streaming")
                 self.end_headers()
@@ -429,9 +496,10 @@ class StreamingHandler(server.BaseHTTPRequestHandler):
                 logging.warning(
                     "Removed streaming client %s: %s", self.client_address, str(e)
                 )
-        else:
-            self.send_error(404)
-            self.end_headers()
+            return
+
+        self.send_error(404)
+        self.end_headers()
 
 
 class StreamingServer(socketserver.ThreadingMixIn, server.HTTPServer):
@@ -1528,7 +1596,12 @@ if __name__ == "__main__":
         cameraConfig, "SetInitialAlarms.h"
     )
     schedule_cache.update(
-        {"start": rec_start, "stop": rec_stop, "start_sec": start_sec, "stop_sec": stop_sec}
+        {
+            "start": rec_start,
+            "stop": rec_stop,
+            "start_sec": start_sec,
+            "stop_sec": stop_sec,
+        }
     )
 
     logging.debug(
