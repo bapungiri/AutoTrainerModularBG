@@ -2,6 +2,9 @@
 	"folders": [
 		{
 			"path": "."
+		},
+		{
+			"path": "../AutoTrainerModularPi5"
 		}
 	],
 	"settings": {
