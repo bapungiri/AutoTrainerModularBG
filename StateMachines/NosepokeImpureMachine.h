@@ -76,6 +76,8 @@ inline void NosepokeImpureMachineCore(NosepokeImpureStruct &st)
 {
     // ---------for unstructured probability--------
     int unstrProb = 80;
+    // ---------max blocks before session stops (-1 = no limit, alarm-based only)--------
+    int maxBlocks = -1;
     // -----------------
 
     st.unstructuredProb = unstrProb; // store for logging
@@ -220,6 +222,19 @@ inline void NosepokeImpureMachineCore(NosepokeImpureStruct &st)
                 break;
 
         } // end trials loop
+
+        // Block-based stop: end session after maxBlocks completed
+        if (maxBlocks > 0 && st.blockNum >= maxBlocks)
+        {
+            ReportData(111, st.trialCounter, (millis() - stateMachineStartTime));
+            ReportData(121, st.blockNum, (millis() - stateMachineStartTime));
+            ReportData(63, st.rewardCounter, (millis() - stateMachineStartTime));
+            EndCurrentStateMachine();
+            RunStartANDEndStateMachine(&endStateMachine);
+            EndCurrentTrainingProtocol();
+            return;
+        }
+
         if (stateStop)
             break;
 
