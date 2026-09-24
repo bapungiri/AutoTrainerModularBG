@@ -1,2 +1,7 @@
 __pycache__/
 *.pyc
+
+# Written on the rig by MainCode.py (resolved Output_Dir and any
+# fallback). Tracking it meant every deploy pushed a stale copy over
+# the rig's own record.
+log.out
