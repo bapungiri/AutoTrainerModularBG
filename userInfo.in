@@ -39,7 +39,8 @@ Nas_Creds           = /home/pi/.smbcredentials
 Destination_In_Fs   = rishika.sharma/2portProb_new/Box1/Kompany
 Mountpoint          = /home/pi/Data/
 Remount             = True    # unmount and mount FS to Mountpoint to ensure Destination_In_Fs is the mounted path
-Logs_Dir            = _CtLogs/
+Logs_Dir            = /home/pi/ATM_transfer_logs
+Logs_Keep           = 14      # run logs kept; all but the newest are gzipped
 
 # ---- Arduino Build & Termination Settings [Delete_Kill_All: Kills jobs & delete folders]
 Kill_OpCon          = False
